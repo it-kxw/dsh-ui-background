@@ -1,0 +1,56 @@
+/*
+ * dsh-ui-background 全局背景样式（经 src/client/styles.ts 的生命周期挂载）。
+ *
+ * 呈现模型（与主题系统解耦，见计划）：
+ * 1. AppFrame 的底色来自 `--dsw-alias-bg-base`（ui-layout AppFrame.module.css），
+ *    背景激活时把它置为 transparent，让出整块画布给背景层。
+ * 2. `.dsh-bg-layer` 是固定铺满的负 z-index 层：位于 AppFrame 之下、画布之上，
+ *    pointer-events: none 保证任何交互都不受影响。背景变量由呈现器内联写入
+ *    本元素（元素是 body 的直接子节点，变量作用域自然局限在层内）。
+ * 3. 深色配色经 `body[data-ds-dark-theme]` 选择器切换同层的深色值（该标记
+ *    由主题呈现器设置在 body 上，见下方深色分支的注释），JS 无需感知配色切换。
+ * 4. 背景底色用静态中性 token（而非被透明化的 alias 值）兜底模糊边缘，保证
+ *    模糊背景的四周不发生透底闪烁。
+ */
+
+/* 背景激活时把面板底色降为同色系半透明底衬（color-mix 混合实体 token 与
+ * transparent，跟随浅/深配色）：背景图透过可见，同时文字始终压在纯色底衬上
+ * 保持可读——完全透明化会被背景图明暗反噬导致文字不可读。预设值按配色与
+ * 底衬同色系，45% 底衬在文字可读的前提下让背景明显可辨（曾从 75% → 60%
+ * 逐步调低以满足"背景更明显"的诉求）。
+ * 覆盖 AppFrame 的 --dsw-alias-bg-base 与侧栏的 --dsw-specific-sidebar-fill
+ * （侧栏列与 SidebarRoot 根都引用后者）。未激活时这些属性不存在，界面与
+ * 默认 DSH 完全一致。 */
+body[data-dsh-bg-active] {
+  --dsw-alias-bg-base: color-mix(in srgb, var(--dsw-static-neutral-bluish-00) 45%, transparent);
+  --dsw-specific-sidebar-fill: color-mix(in srgb, var(--dsw-static-neutral-bluish-50) 45%, transparent);
+}
+
+body[data-ds-dark-theme][data-dsh-bg-active] {
+  --dsw-alias-bg-base: color-mix(in srgb, var(--dsw-static-neutral-bluish-950) 45%, transparent);
+  --dsw-specific-sidebar-fill: color-mix(in srgb, var(--dsw-static-neutral-bluish-900) 45%, transparent);
+}
+
+.dsh-bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--dsw-static-neutral-bluish-00, transparent);
+  background-image: var(--dsh-bg-image-light, none);
+  background-size: var(--dsh-bg-size, cover);
+  background-position: center;
+  background-repeat: var(--dsh-bg-repeat, no-repeat);
+  opacity: var(--dsh-bg-opacity, 1);
+  filter: blur(var(--dsh-bg-blur, 0px));
+}
+
+/* 深色配色下的深色底色与背景图。
+ * 注意：`data-ds-dark-theme` 由主题呈现器设置在 body 上（ThemePresenter /
+ * boot-theme / design-platform.css 均以 `body[data-ds-dark-theme]` 匹配），
+ * 深色分支必须挂在 body，不能挂在 html——此前用 html 前缀导致深色模式下
+ * 背景退回浅色值、底衬退回浅色系，与浅色文字叠加看不清。 */
+body[data-ds-dark-theme] .dsh-bg-layer {
+  background-color: var(--dsw-static-neutral-bluish-950, transparent);
+  background-image: var(--dsh-bg-image-dark, var(--dsh-bg-image-light, none));
+}

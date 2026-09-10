@@ -1,0 +1,9 @@
+# dsh-ui-background 的 bundle patch 层。
+#
+# 通过 `dsh plugin --profile web add <包>` 安装后，本文件作为该包声明的
+# `dsh.bundle` 层自动应用到 web profile 的合成树：插入 `ui-background` 行。
+# 行名按包名解析（安装时包已进 profile 的 node_modules）；客户端模块系统
+# 读取同一 package.json 的 dsh.client 声明，服务 lib/client.js。
+- insert:
+    - id: ui-background
+      name: dsh-ui-background

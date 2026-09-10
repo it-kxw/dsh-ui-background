@@ -1,0 +1,203 @@
+/* 背景设置行：标题 + 预设卡片组 + 滑块/填充/自定义图片控件。
+ * 布局节奏对齐 ui-theme 的 AppearanceRow（gap 8、pad 16/0、0.5px hairline
+ * 分隔线、宽度由 section 列裁切）。 */
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 0;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
+  color: var(--dsw-alias-label-primary);
+}
+
+/* 预设卡片组：none + 各预设，窄屏换行。 */
+.presetRow {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 预设卡片：上半是背景预览块（数据驱动的 CSS 值），下半是标签。 */
+.presetCard {
+  box-sizing: border-box;
+  flex: 1 1 128px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: 16px;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+}
+
+.presetCard:hover:not(.selected) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+/* 选中卡片的描边与填充（对齐 AppearanceRow.selected 的处理方式）。 */
+.selected {
+  background: var(--dsw-alias-bg-module-platform);
+  border-color: var(--dsw-static-neutral-bluish-400);
+}
+
+/* 预览块：展示该预设的浅色值（数据值，非硬编码颜色）。 */
+.preview {
+  height: 40px;
+  border-radius: 10px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  background-position: center;
+  background-size: cover;
+}
+
+/* 控件组：一行标签 + 滑块（或按钮组）。 */
+.controlRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.controlLabel {
+  flex: 0 0 auto;
+  min-width: 72px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.controlValue {
+  flex: 0 0 auto;
+  min-width: 44px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 原生滑块最小化样式，强调色走品牌 token。 */
+.slider {
+  flex: 1 1 auto;
+  min-width: 0;
+  accent-color: var(--dsw-alias-brand-primary);
+}
+
+/* 填充方式与预设切换共用的小胶囊按钮组。 */
+.pillRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  padding: 4px 12px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+}
+
+.pill:hover:not(.selected) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.pill.selected {
+  background: var(--dsw-alias-bg-module-platform);
+  border-color: var(--dsw-static-neutral-bluish-400);
+}
+
+/* 图片路径输入行：输入框 + 应用按钮。 */
+.imageRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.imageInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.imageInput::placeholder {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.applyButton {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--dsw-alias-button-primary-fill);
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-button-contrast-fill);
+  cursor: pointer;
+}
+
+.applyButton:hover {
+  background: var(--dsw-alias-button-info-hover);
+}
+
+/* 清除背景：危险语义的幽灵按钮。 */
+.clearButton {
+  align-self: flex-start;
+  padding: 4px 12px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.clearButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-state-warn-primary);
+}
+
+.applyButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* 图片与窗口比例对比提示：次要说明文本。 */
+.ratioHint {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* 上传失败提示：告警语义文本。 */
+.errorHint {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-state-warn-primary);
+}

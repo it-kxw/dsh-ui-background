@@ -1,0 +1,33 @@
+/* 背景一键切换悬浮按钮（shell.overlay 贡献）。
+ * 固定右下角胶囊；跟随 web-styling 规范：无边框 + elevation 阴影、全圆角配
+ * corner-shape、语义 token 取色、hover 用交互态 token。 */
+
+.toggle {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 999px;
+  corner-shape: round;
+  box-shadow: var(--dsw-elevation-panel);
+  background: var(--dsw-alias-bg-layer-1);
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+}
+
+.toggle:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 2px;
+}

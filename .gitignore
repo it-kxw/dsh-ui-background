@@ -1,0 +1,9 @@
+node_modules/
+lib/
+dist/
+*.log
+.DS_Store
+# CodeArts IDE 生成的本地工作区目录，不提交。
+.codeartsdoer/
+# 工具生成的完整性哈希快照（本地校验用，随构建漂移），不提交。
+.merkle-snapshot.json
