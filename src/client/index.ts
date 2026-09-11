@@ -62,6 +62,8 @@ export function apply(ctx: ClientContext): void {
   const presenter = new BackgroundPresenter()
   const runtime = new BackgroundRuntime(host, presenter)
   ctx.effect(() => host.subscribe(() => { runtime.adopt() }), 'dsh-ui-background: settings adoption')
+  // 卸载时冲刷防抖中的持久化写，避免最后一笔设置丢失。
+  ctx.effect(() => () => { runtime.dispose() }, 'dsh-ui-background: persist flush')
 
   // store 镜像：两个注册项各自持有实例，apply 维护两个 bound 一并同步。
   const store = createBackgroundStore()
@@ -85,7 +87,6 @@ export function apply(ctx: ClientContext): void {
       setOpacity: (value) => { runtime.setOpacity(value) },
       setBlur: (value) => { runtime.setBlur(value) },
       setFill: (fill) => { runtime.setFill(fill) },
-      setImagePath: (path) => { void runtime.setImagePath(path) },
       clear: () => {
         // 复合清除：预设回 none、图片清空（图片持久化为异步，fire-and-forget）。
         runtime.setPreset(BACKGROUND_PRESET_NONE)

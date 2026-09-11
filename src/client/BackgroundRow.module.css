@@ -123,29 +123,11 @@
   border-color: var(--dsw-static-neutral-bluish-400);
 }
 
-/* 图片路径输入行：输入框 + 应用按钮。 */
+/* 图片上传行（本地文件选择器入口）。 */
 .imageRow {
   display: flex;
   gap: 8px;
   align-items: center;
-}
-
-.imageInput {
-  flex: 1 1 auto;
-  min-width: 0;
-  box-sizing: border-box;
-  padding: 6px 10px;
-  border: 0.5px solid var(--dsw-alias-border-l3);
-  border-radius: 8px;
-  background: transparent;
-  font: inherit;
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--dsw-alias-label-primary);
-}
-
-.imageInput::placeholder {
-  color: var(--dsw-alias-label-tertiary);
 }
 
 .applyButton {

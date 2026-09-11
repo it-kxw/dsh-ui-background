@@ -46,6 +46,11 @@ function sameSettings(left: Readonly<BackgroundSettings>, right: Readonly<Backgr
 
 /**
  * 背景设置的运行时。
+ *
+ * 连续写（滑杆拖动）时只即时更新本地状态并发布（DOM/UI 立即响应），
+ * 持久化走 200ms 尾沿防抖：停顿后才把最新值写入 host，避免每一档都触发
+ * 一次设置 RPC + YAML 落盘（高频拖动会串行堆积导致卡顿）。
+ *
  * @param host - 装配方 bind 的同名设置 scope。
  * @param presenter - 负责 DOM 投影的呈现器。
  */
@@ -55,6 +60,10 @@ export class BackgroundRuntime {
   private revision = 0
   private snapshot: BackgroundSnapshot = Object.freeze({ settings: this.settings, revision: 0 })
   private readonly listeners = new Set<() => void>()
+  /** 持久化防抖计时器（值为 undefined 表示当前无待写）。 */
+  private persistTimer: ReturnType<typeof setTimeout> | undefined
+  /** 待持久化的字段写（按字段合并：同字段只留最新，不同字段各自落盘）。 */
+  private readonly pendingWrites = new Map<string, unknown>()
 
   constructor(
     private readonly host: SettingsScope<BackgroundSettings>,
@@ -103,7 +112,7 @@ export class BackgroundRuntime {
     }
     if (this.settings.preset === id) return
     this.settings = { ...this.settings, preset: id }
-    void this.host.set(BACKGROUND_PRESET_FIELD, id)
+    this.schedulePersist(BACKGROUND_PRESET_FIELD, id)
     this.publish()
   }
 
@@ -118,7 +127,7 @@ export class BackgroundRuntime {
     }
     if (this.settings.opacity === value) return
     this.settings = { ...this.settings, opacity: value }
-    void this.host.set(BACKGROUND_OPACITY_FIELD, value)
+    this.schedulePersist(BACKGROUND_OPACITY_FIELD, value)
     this.publish()
   }
 
@@ -133,7 +142,7 @@ export class BackgroundRuntime {
     }
     if (this.settings.blur === value) return
     this.settings = { ...this.settings, blur: value }
-    void this.host.set(BACKGROUND_BLUR_FIELD, value)
+    this.schedulePersist(BACKGROUND_BLUR_FIELD, value)
     this.publish()
   }
 
@@ -148,7 +157,7 @@ export class BackgroundRuntime {
     }
     if (this.settings.fill === value) return
     this.settings = { ...this.settings, fill: value }
-    void this.host.set(BACKGROUND_FILL_FIELD, value)
+    this.schedulePersist(BACKGROUND_FILL_FIELD, value)
     this.publish()
   }
 
@@ -188,4 +197,38 @@ export class BackgroundRuntime {
       }
     }
   }
+
+  /**
+   * 安排一笔持久化写（尾沿防抖）：按字段合并，停顿后把待写字段一并落盘。
+   * @param field - 设置字段。
+   * @param value - 字段值。
+   */
+  private schedulePersist(field: string, value: unknown): void {
+    this.pendingWrites.set(field, value)
+    if (this.persistTimer !== undefined) return
+    this.persistTimer = setTimeout(() => { this.flushPersist() }, PERSIST_DELAY_MS)
+  }
+
+  /**
+   * 立即落盘全部待写字段并清空计时器（卸载冲刷用）。幂等。
+   */
+  flushPersist(): void {
+    if (this.persistTimer !== undefined) {
+      clearTimeout(this.persistTimer)
+      this.persistTimer = undefined
+    }
+    if (this.pendingWrites.size === 0) return
+    for (const [field, value] of this.pendingWrites) void this.host.set(field, value)
+    this.pendingWrites.clear()
+  }
+
+  /**
+   * 卸载：冲刷未落盘的防抖写（避免最后一笔设置丢失）。
+   */
+  dispose(): void {
+    this.flushPersist()
+  }
 }
+
+/** 持久化防抖延迟：滑杆停顿 200ms 后才落盘一次。 */
+const PERSIST_DELAY_MS = 200

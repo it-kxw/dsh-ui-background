@@ -48,7 +48,7 @@ export interface UploadedBackground {
   fill: BackgroundFill
 }
 
-/** 注入的业务面：五个写操作 + 清除 + 上传。 */
+/** 注入的业务面：四个写操作 + 清除 + 上传。 */
 export interface BackgroundRowInjected {
   /** 切换预设（'none' 或内置预设 id）。 */
   setPreset: (id: string) => void
@@ -58,8 +58,6 @@ export interface BackgroundRowInjected {
   setBlur: (value: number) => void
   /** 设置图片填充方式。 */
   setFill: (value: BackgroundFill) => void
-  /** 设置自定义图片绝对路径；空串清除图片。 */
-  setImagePath: (path: string) => void
   /** 一键清除背景（预设置 none、图片清空）。 */
   clear: () => void
   /** 上传本地图片：完成上传、持久化与比例适配，返回结果供展示。 */
@@ -89,16 +87,12 @@ function readViewport(): { width: number; height: number } {
  * @returns 设置行元素树。
  */
 export function BackgroundRow(
-  { t, useStore, setPreset, setOpacity, setBlur, setFill, setImagePath, clear, uploadImage }: BackgroundRowProps,
+  { t, useStore, setPreset, setOpacity, setBlur, setFill, clear, uploadImage }: BackgroundRowProps,
 ) {
   const settings = useStore(state => state.settings)
   // 激活判定与呈现器一致：可解析出背景值（none / 未知预设 / custom 缺图均为假）。
   const active = backgroundValues(settings) !== null
   const customActive = isCustomPreset(settings.preset) && settings.imagePath !== ''
-
-  // 图片输入草稿（手输路径）：私有视口状态，应用才提交；外部值变化时跟随。
-  const [imageDraft, setImageDraft] = useState(settings.imagePath)
-  useEffect(() => { setImageDraft(settings.imagePath) }, [settings.imagePath])
 
   // 上传流程状态。
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -166,20 +160,6 @@ export function BackgroundRow(
         ))}
       </div>
       <div className={css.imageRow}>
-        <input
-          className={css.imageInput}
-          type="text"
-          value={imageDraft}
-          placeholder={t('row.customImage')}
-          onChange={(event) => { setImageDraft(event.target.value) }}
-        />
-        <button
-          type="button"
-          className={css.applyButton}
-          onClick={() => { setImagePath(imageDraft) }}
-        >
-          {t('row.customImage')}
-        </button>
         <button
           type="button"
           className={css.applyButton}

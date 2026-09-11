@@ -27,14 +27,13 @@ function makeProps(over: Partial<BackgroundSettings> = {}): {
     setOpacity: ReturnType<typeof vi.fn>
     setBlur: ReturnType<typeof vi.fn>
     setFill: ReturnType<typeof vi.fn>
-    setImagePath: ReturnType<typeof vi.fn>
     clear: ReturnType<typeof vi.fn>
   }
   uploadImage: ReturnType<typeof vi.fn>
 } {
   const callbacks = {
     setPreset: vi.fn(), setOpacity: vi.fn(), setBlur: vi.fn(),
-    setFill: vi.fn(), setImagePath: vi.fn(), clear: vi.fn(),
+    setFill: vi.fn(), clear: vi.fn(),
   }
   const uploadImage = vi.fn().mockResolvedValue({ path: '', width: 0, height: 0, fill: 'cover' })
   const settings = { ...DEFAULT_BACKGROUND_SETTINGS, ...over }
@@ -97,24 +96,7 @@ describe('BackgroundRow 滑块与填充', () => {
   })
 })
 
-describe('BackgroundRow 自定义图片', () => {
-  it('输入路径并应用触发 setImagePath', () => {
-    const { props, callbacks } = makeProps()
-    const view = render(<BackgroundRow {...props} />)
-    fireEvent.change(view.getByRole('textbox'), { target: { value: 'D:/photos/wall.png' } })
-    fireEvent.click(view.getByRole('button', { name: '自定义图片' }))
-    expect(callbacks.setImagePath).toHaveBeenCalledWith('D:/photos/wall.png')
-  })
-
-  it('外部 settings 变化时输入框跟随', () => {
-    // 首次渲染 imagePath 为空，随后设置变化（通过重渲染验证 useEffect 同步）。
-    const first = render(<BackgroundRow {...makeProps().props} />)
-    expect((first.getByRole('textbox') as HTMLInputElement).value).toBe('')
-    cleanup()
-    const second = render(<BackgroundRow {...makeProps({ imagePath: 'D:/a.png' }).props} />)
-    expect((second.getByRole('textbox') as HTMLInputElement).value).toBe('D:/a.png')
-  })
-
+describe('BackgroundRow 自定义图片（上传）', () => {
   it('选择文件触发 uploadImage 并展示图片/窗口比例对比', async () => {
     const { props, uploadImage } = makeProps({ preset: 'custom', imagePath: 'D:/uploaded/a.png' })
     uploadImage.mockResolvedValue({ path: 'D:/uploaded/a.png', width: 1920, height: 1080, fill: 'cover' })

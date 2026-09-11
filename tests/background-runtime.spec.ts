@@ -4,7 +4,7 @@
  * @author 康小汪【kxw】
  * @date 2026-09-10
  */
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // 只加载 settings-scope 子路径源码：完整 test-runtime 入口会连带 React 及其
 // window 引用，本文件是纯 node 环境。
 import { stubSettingsScope, type StubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime/src/settings-scope'
@@ -12,6 +12,16 @@ import type { BackgroundSettings } from '../src/background-settings.ts'
 import { DEFAULT_BACKGROUND_SETTINGS } from '../src/background-settings.ts'
 import { BackgroundRuntime, type BackgroundSnapshot } from '../src/client/background-runtime.ts'
 import type { BackgroundPresenter } from '../src/client/background-presenter.ts'
+
+// 持久化走 200ms 防抖：全文件使用 fake timers，断言落盘前推进窗口。
+// （fake timers 不影响 Promise 微任务，setImagePath 的 await 照常工作。）
+beforeEach(() => { vi.useFakeTimers() })
+afterEach(() => { vi.useRealTimers() })
+
+/** 推进持久化防抖窗口（200ms 判断 + 余量）。 */
+function advancePersist(): void {
+  vi.advanceTimersByTime(201)
+}
 
 /** fake 呈现器：记录 apply/dispose，不碰 DOM。 */
 function fakePresenter(): { presenter: BackgroundPresenter; apply: ReturnType<typeof vi.fn> } {
@@ -58,6 +68,9 @@ describe('BackgroundRuntime 写操作', () => {
   it('setPreset 持久化并发布；未知 id 抛错且无副作用', () => {
     const { runtime, host, apply, snapshots } = make()
     runtime.setPreset('aurora')
+    // 拖动类写不立即落盘（防抖）；停顿后冲刷。
+    expect(host.set).not.toHaveBeenCalled()
+    advancePersist()
     expect(host.set).toHaveBeenCalledWith('preset', 'aurora')
     expect(runtime.getSnapshot().settings.preset).toBe('aurora')
     expect(apply).toHaveBeenCalledWith(runtime.getSnapshot().settings)
@@ -72,6 +85,7 @@ describe('BackgroundRuntime 写操作', () => {
     runtime.setPreset('aurora')
     runtime.setPreset('none')
     expect(runtime.getSnapshot().settings.preset).toBe('none')
+    advancePersist()
     expect(host.set).toHaveBeenLastCalledWith('preset', 'none')
     runtime.setPreset('custom')
     expect(runtime.getSnapshot().settings.preset).toBe('custom')
@@ -84,6 +98,7 @@ describe('BackgroundRuntime 写操作', () => {
     runtime.setPreset('aurora')
     runtime.setOpacity(0.5)
     runtime.setOpacity(0.5)
+    advancePersist()
     expect(host.set).toHaveBeenCalledTimes(2)
     expect(snapshots).toHaveLength(2)
   })
@@ -91,10 +106,13 @@ describe('BackgroundRuntime 写操作', () => {
   it('setOpacity/setBlur/setFill 校验范围并持久化', () => {
     const { runtime, host } = make()
     runtime.setOpacity(0.5)
+    advancePersist()
     expect(host.set).toHaveBeenCalledWith('opacity', 0.5)
     runtime.setBlur(4)
+    advancePersist()
     expect(host.set).toHaveBeenCalledWith('blur', 4)
     runtime.setFill('tile')
+    advancePersist()
     expect(host.set).toHaveBeenCalledWith('fill', 'tile')
     for (const bad of [0, 1.01, Number.NaN]) {
       expect(() => runtime.setOpacity(bad)).toThrow('outside')
@@ -117,6 +135,32 @@ describe('BackgroundRuntime 写操作', () => {
     await runtime.setImagePath('')
     expect(runtime.getSnapshot().settings.imagePath).toBe('')
     expect(host.set).toHaveBeenCalledWith('imagePath', '')
+  })
+
+  it('防抖：拖动期间不落盘，停顿后按字段各写一笔最新值', () => {
+    const { runtime, host } = make()
+    runtime.setOpacity(0.1)
+    runtime.setBlur(2)
+    runtime.setOpacity(0.5) // 同字段尾沿合并
+    expect(host.set).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(199)
+    expect(host.set).not.toHaveBeenCalled()
+    advancePersist()
+    // 同字段只留最新一笔；不同字段各自落盘。
+    expect(host.set).toHaveBeenCalledTimes(2)
+    expect(host.set).toHaveBeenCalledWith('opacity', 0.5)
+    expect(host.set).toHaveBeenCalledWith('blur', 2)
+  })
+
+  it('dispose 冲刷防抖中的待写字段', () => {
+    const { runtime, host } = make()
+    runtime.setOpacity(0.8)
+    expect(host.set).not.toHaveBeenCalled()
+    runtime.dispose()
+    expect(host.set).toHaveBeenCalledWith('opacity', 0.8)
+    // 冲刷后幂等：再次 dispose 不再重复写。
+    runtime.dispose()
+    expect(host.set).toHaveBeenCalledTimes(1)
   })
 })
 
