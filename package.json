@@ -2,6 +2,23 @@
   "name": "dsh-ui-background",
   "version": "0.1.0",
   "description": "One-click DSH Web background switcher: built-in gradient/solid presets plus a local-image background with opacity, blur, and fill controls.",
+  "keywords": [
+    "dsh-plugin",
+    "dsh",
+    "deepseek-harness",
+    "background",
+    "wallpaper",
+    "web-ui",
+    "plugin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/it-kxw/dsh-ui-background.git"
+  },
+  "homepage": "https://github.com/it-kxw/dsh-ui-background#readme",
+  "bugs": {
+    "url": "https://github.com/it-kxw/dsh-ui-background/issues"
+  },
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
