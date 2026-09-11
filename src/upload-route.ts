@@ -11,20 +11,22 @@
  * 2. 扩展名经 `x-upload-ext` 请求头传入，必须在小写白名单内（400 拒绝）。
  * 3. 大小上限：Content-Length 与流式累计双重检查，超限 413。
  * 4. 文件名用随机字节生成，绝不采用客户端提供的文件名（防覆盖/穿越）。
- * 5. 上传成功后尽力清理旧的上传文件（仅删除本上传目录内的文件）。
+ * 5. 上传成功后尽力清理旧的**上传**文件（仅限本上传目录的顶层文件：
+ *    必应壁纸缓存位于同根的子目录，不能被上传流程误删）。
  *
  * @author 康小汪【kxw】
  * @date 2026-09-10
  */
 import { randomBytes } from 'node:crypto'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { join, sep } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-settings'
 import type { SettingsProvider } from '@deepseek-ai/dsh-settings'
 import { BACKGROUND_IMAGE_MIME, BACKGROUND_UPLOAD_PATH, type BackgroundSettings } from './background-settings.ts'
+import { hasOversizedBody, readBodyWithin } from './request-body.ts'
 
 /** 上传路由参数化配置。 */
 export interface BackgroundUploadRouteOptions {
@@ -78,13 +80,13 @@ async function handleUploadRequest(
     respond(res, 400)
     return
   }
-  if (isOverLimit(req, options.maxBytes)) {
+  if (hasOversizedBody(req, options.maxBytes)) {
     // 预检拒绝：排空请求体，避免未被消费的连接残留。
     req.resume()
     respond(res, 413, 'payload too large')
     return
   }
-  const body = await readBody(req, options.maxBytes)
+  const body = await readBodyWithin(req, options.maxBytes)
   if (body === undefined) {
     respond(res, 413, 'payload too large')
     return
@@ -111,35 +113,6 @@ function uploadExtension(req: IncomingMessage): string | undefined {
 }
 
 /**
- * 用 Content-Length 预检大小（只作快速拒绝；实际以 readBody 累计为准）。
- * @param req - 请求。
- * @param maxBytes - 上限。
- * @returns 是否已明确超限。
- */
-function isOverLimit(req: IncomingMessage, maxBytes: number): boolean {
-  const length = Number.parseInt(String(req.headers['content-length'] ?? ''), 10)
-  return Number.isFinite(length) && length > maxBytes
-}
-
-/**
- * 读取请求体并累计字节数；超限返回 undefined（调用方回 413）。
- * @param req - 请求。
- * @param maxBytes - 上限。
- * @returns 请求体字节，或 undefined（超限）。
- */
-async function readBody(req: IncomingMessage, maxBytes: number): Promise<Buffer | undefined> {
-  const chunks: Buffer[] = []
-  let total = 0
-  for await (const chunk of req) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-    total += buffer.length
-    if (total > maxBytes) return undefined
-    chunks.push(buffer)
-  }
-  return Buffer.concat(chunks, total)
-}
-
-/**
  * 把字节写入上传目录：目录确保存在，文件名随机生成（不采用客户端文件名）。
  * @param uploadDir - 落盘目录（绝对路径）。
  * @param ext - 白名单扩展名。
@@ -155,8 +128,10 @@ async function storeImage(uploadDir: string, ext: string, body: Buffer): Promise
 }
 
 /**
- * 尽力删除上一次上传的文件：仅当旧 imagePath 位于本上传目录内（防误删用户
- * 其它文件）。读不到设置或文件不存在时静默跳过。
+ * 尽力删除上一次上传的文件：仅当旧 imagePath 是本上传目录的**顶层文件**。
+ * 用 dirname 精确比对而非前缀匹配，原因是必应壁纸缓存位于同根的子目录
+ * （`ui-background/bing/`），前缀匹配会把缓存当旧上传一起删掉。
+ * 读不到设置或文件不存在时静默跳过。
  * @param ctx - 宿主上下文。
  * @param namespace - 背景设置命名空间。
  * @param uploadDir - 上传目录（绝对路径）。
@@ -166,8 +141,8 @@ async function removePreviousUpload(ctx: Context, namespace: string, uploadDir: 
     const settings = ctx.get('settings') as SettingsProvider | undefined
     const section = settings?.get(namespace) as { imagePath?: unknown } | undefined
     const previous = typeof section?.imagePath === 'string' ? section.imagePath : ''
-    if (previous.startsWith(uploadDir + sep)) {
-      await rm(previous, { force: true })
+    if (previous !== '' && dirname(resolve(previous)) === resolve(uploadDir)) {
+      await rm(resolve(previous), { force: true })
     }
   } catch {
     // 清理是尽力而为：失败不影响本次上传的成功响应。

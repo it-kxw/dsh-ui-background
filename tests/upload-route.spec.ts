@@ -5,7 +5,7 @@
  * @date 2026-09-10
  */
 import { afterEach, describe, expect, it } from 'vitest'
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -104,6 +104,31 @@ describe('upload 成功路径', () => {
     // 属于上传目录的旧文件被清理；目录外的保留。
     await expect(stat(previous)).rejects.toThrow()
     await expect(stat(oldForeign)).resolves.toBeTruthy()
+  })
+
+  it('上传目录内子目录的文件不被清理（保护必应壁纸缓存）', async () => {
+    // 必应缓存位于同根子目录 ui-background/bing/：前缀匹配会误删，dirname 精确比对不会。
+    const uploadDir = await mkdtemp(join(tmpdir(), 'dsh-ui-background-up4-'))
+    const cached = join(uploadDir, 'bing', 'bing-20260910-01234567-uhd.jpg')
+    await mkdir(join(uploadDir, 'bing'), { recursive: true })
+    await writeFile(cached, PNG_BYTES)
+    const route = createBackgroundUploadRoute(fakeCtx(fakeSettings(cached)), {
+      namespace: BACKGROUND_SETTINGS_NAMESPACE,
+      maxBytes: 20 * 1024 * 1024,
+      uploadDir,
+    })
+    const server = createServer((req: IncomingMessage, res: ServerResponse) => { void route.handler(req, res) })
+    await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', resolve) })
+    const port = (server.address() as AddressInfo).port
+    servers.push(server)
+    dirs.push(uploadDir)
+    const response = await fetch(`http://127.0.0.1:${port}${BACKGROUND_UPLOAD_PATH}`, {
+      method: 'POST',
+      headers: { 'x-upload-ext': 'png' },
+      body: PNG_BYTES,
+    })
+    expect(response.status).toBe(200)
+    await expect(stat(cached)).resolves.toBeTruthy()
   })
 })
 
