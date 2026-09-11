@@ -1,7 +1,7 @@
 {
   "name": "dsh-ui-background",
-  "version": "0.3.0",
-  "description": "One-click DSH Web background switcher: built-in gradient/solid presets, local-image upload, Bing daily wallpaper (4K/UHD, region, daily auto-update), opacity/blur/fill controls, light streaks and particle effects.",
+  "version": "0.4.0",
+  "description": "One-click DSH Web background switcher: gradient presets (aurora/sunset/emerald), local-image upload, Bing daily wallpaper (4K/UHD, region, daily auto-update), opacity/blur/fill controls, light streaks and particle effects.",
   "keywords": [
     "dsh-plugin",
     "dsh",

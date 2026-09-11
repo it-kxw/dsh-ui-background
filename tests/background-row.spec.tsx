@@ -65,7 +65,12 @@ describe('BackgroundRow 预设选择', () => {
     expect(view.getByText('背景')).not.toBeNull()
     expect(view.getByRole('button', { name: '无' })).not.toBeNull()
     expect(view.getByRole('button', { name: '极光' })).not.toBeNull()
-    expect(view.getByRole('button', { name: '石板' })).not.toBeNull()
+    expect(view.getByRole('button', { name: '落日' })).not.toBeNull()
+    expect(view.getByRole('button', { name: '翡翠' })).not.toBeNull()
+    // 已移除的预设不应再出现任何按钮。
+    expect(view.queryByRole('button', { name: '夜空' })).toBeNull()
+    expect(view.queryByRole('button', { name: '沙丘' })).toBeNull()
+    expect(view.queryByRole('button', { name: '石板' })).toBeNull()
   })
 
   it('当前设置对应的预设为选中态', () => {
@@ -78,8 +83,8 @@ describe('BackgroundRow 预设选择', () => {
   it('点击预设按钮触发 setPreset', () => {
     const { props, callbacks } = makeProps()
     const view = render(<BackgroundRow {...props} />)
-    fireEvent.click(view.getByRole('button', { name: '夜空' }))
-    expect(callbacks.setPreset).toHaveBeenCalledWith('midnight')
+    fireEvent.click(view.getByRole('button', { name: '落日' }))
+    expect(callbacks.setPreset).toHaveBeenCalledWith('sunset')
     fireEvent.click(view.getByRole('button', { name: '无' }))
     expect(callbacks.setPreset).toHaveBeenCalledWith('none')
   })

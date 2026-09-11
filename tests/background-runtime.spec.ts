@@ -216,10 +216,10 @@ describe('BackgroundRuntime 写操作', () => {
 describe('BackgroundRuntime adopt 吸收', () => {
   it('host 发布新 section 时吸收并发布，不写回', () => {
     const { runtime, host, snapshots } = make()
-    host.publish({ status: 'ready', value: { ...DEFAULT_BACKGROUND_SETTINGS, preset: 'midnight', blur: 8 }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { ...DEFAULT_BACKGROUND_SETTINGS, preset: 'emerald', blur: 8 }, revision: 1, writable: true })
     runtime.adopt()
     const snapshot = runtime.getSnapshot()
-    expect(snapshot.settings).toMatchObject({ preset: 'midnight', blur: 8 })
+    expect(snapshot.settings).toMatchObject({ preset: 'emerald', blur: 8 })
     expect(snapshot.revision).toBe(1)
     expect(host.set).not.toHaveBeenCalled()
     expect(snapshots).toHaveLength(1)
@@ -342,7 +342,7 @@ describe('BackgroundRuntime 快照与订阅', () => {
   it('订阅者收到每次发布；一个抛错的订阅者不卡住后续', () => {
     const { runtime, snapshots } = make()
     runtime.subscribe(() => { throw new Error('boom') })
-    runtime.setPreset('slate')
+    runtime.setPreset('sunset')
     expect(snapshots).toHaveLength(1)
     expect(runtime.getSnapshot().revision).toBe(1)
   })
@@ -351,7 +351,7 @@ describe('BackgroundRuntime 快照与订阅', () => {
     const { runtime, snapshots } = make()
     const unsubscribe = runtime.subscribe(() => { snapshots.push(runtime.getSnapshot()) })
     unsubscribe()
-    runtime.setPreset('sand')
+    runtime.setPreset('emerald')
     expect(snapshots).toHaveLength(1)
   })
 })

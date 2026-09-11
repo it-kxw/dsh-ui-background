@@ -38,9 +38,6 @@ export const zh = {
   'preset.aurora': '极光',
   'preset.sunset': '落日',
   'preset.emerald': '翡翠',
-  'preset.midnight': '夜空',
-  'preset.sand': '沙丘',
-  'preset.slate': '石板',
   'toggle.label': '背景：{name}',
   'toggle.next': '切换背景',
 } satisfies Record<string, string>
@@ -79,9 +76,6 @@ export const en = {
   'preset.aurora': 'Aurora',
   'preset.sunset': 'Sunset',
   'preset.emerald': 'Emerald',
-  'preset.midnight': 'Midnight',
-  'preset.sand': 'Sand',
-  'preset.slate': 'Slate',
   'toggle.label': 'Background: {name}',
   'toggle.next': 'Switch background',
 } satisfies Record<BackgroundLocaleKey, string>

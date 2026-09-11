@@ -29,6 +29,14 @@ describe('BACKGROUND_PRESETS 预设表', () => {
     expect(BACKGROUND_PRESET_IDS).toEqual(BACKGROUND_PRESETS.map(preset => preset.id))
   })
 
+  it('内置预设只剩极光/落日/翡翠三套（已移除夜空/沙丘/石板）', () => {
+    expect(BACKGROUND_PRESET_IDS).toEqual(['aurora', 'sunset', 'emerald'])
+    for (const removed of ['midnight', 'sand', 'slate']) {
+      expect(BACKGROUND_PRESET_IDS.includes(removed)).toBe(false)
+      expect(presetById(removed)).toBeUndefined()
+    }
+  })
+
   it('none 与图片来源型预设（custom/bing）不在可点击的预设表内', () => {
     expect(BACKGROUND_PRESETS.some(preset => preset.id === BACKGROUND_PRESET_NONE)).toBe(false)
     expect(BACKGROUND_PRESET_IDS.includes(BACKGROUND_PRESET_CUSTOM)).toBe(false)
@@ -40,8 +48,8 @@ describe('BACKGROUND_PRESETS 预设表', () => {
 
 describe('presetById', () => {
   it('命中已知 id，未知 id 返回 undefined', () => {
-    expect(presetById('aurora')?.kind).toBe('gradient')
-    expect(presetById('sand')?.kind).toBe('solid')
+    expect(presetById('aurora')?.light).toContain('linear-gradient')
+    expect(presetById('sunset')?.dark).toContain('linear-gradient')
     expect(presetById('unknown')).toBeUndefined()
     expect(presetById(BACKGROUND_PRESET_NONE)).toBeUndefined()
   })

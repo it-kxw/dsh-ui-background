@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-为 **DeepSeek Harness Web GUI**（`dsh web`）提供的一键背景切换插件：内置渐变/纯色预设、本地图片上传与路径引用、**必应每日壁纸**，支持不透明度、模糊、填充方式调节；浅色/深色配色自动适配，背景随手持久化到设置文档。
+为 **DeepSeek Harness Web GUI**（`dsh web`）提供的一键背景切换插件：内置渐变预设、本地图片上传与路径引用、**必应每日壁纸**，支持不透明度、模糊、填充方式调节；浅色/深色配色自动适配，背景随手持久化到设置文档。
 
 插件以独立仓库形式自包含构建（不修改 DSH 内核），通过 Web profile 的 patch 层接入运行中的实例即可使用。
 
@@ -25,7 +25,7 @@
 ## 特性
 
 - **一键切换**：界面右下角悬浮按钮在「无背景 → 预设… → 无背景」间循环切换
-- **内置预设**：4 个渐变 + 2 个纯色；每个预设在浅色/深色配色下各有一套取值，切换主题不失效
+- **内置预设**：极光 / 落日 / 翡翠三套渐变；每套在浅色/深色配色下各有一套取值，切换主题不失效
 - **自定义图片**：支持**本地文件上传**（落盘到 `$DSH_HOME/ui-background/`）
 - **比例提示**：上传后展示「图片 16:9 · 窗口 16:9」对比；上传默认以 `cover` **铺满全屏**
 - **必应每日壁纸**：一键取必应首页壁纸（可选 4K / 1920×1080、可选地区），支持「换一张」回溯最近 8 天与「每日自动更新」；图片由 Node 半边下载并**缓存到本地**，因此不依赖热链、断网也能显示已缓存的图
@@ -55,7 +55,7 @@
 
 ```sh
 dsh plugin --profile web add dsh-ui-background        # npm 已发布时
-dsh plugin --profile web add ./dsh-ui-background-0.3.0.tgz   # 或本地打包文件
+dsh plugin --profile web add ./dsh-ui-background-0.4.0.tgz   # 或本地打包文件
 ```
 
 `dsh plugin` 会自动：安装依赖 → 把插件追加进 profile 的 bundle 层（`dsh.profile.bundles`）→ 插件行随组合生效。**然后重启一次 `dsh web`**，刷新浏览器即可看到设置 → 通用 →「背景」行与右下角悬浮按钮。
@@ -99,7 +99,7 @@ pnpm run build      # 产出 lib/index.js（Node 半边）与 lib/client.js（�
 ## 使用
 
 1. 打开设置 → 通用 → **背景**：
-   - 点预设卡片（极光 / 落日 / 翡翠 / 夜空 / 沙丘 / 石板 / 无）切换背景
+   - 点预设卡片（极光 / 落日 / 翡翠 / 无）切换背景
    - 点 **上传图片** 选择本地照片（自动铺满全屏）
    - 点 **获取今日壁纸** 用必应每日壁纸作为背景；之后按钮变为 **换一张**（在最近 8 天里换）
    - 调节不透明度、模糊、填充方式；**清除背景**一键还原
@@ -112,7 +112,7 @@ pnpm run build      # 产出 lib/index.js（Node 半边）与 lib/client.js（�
 
 | 字段 | 类型 | 默认 | 说明 |
 |---|---|---|---|
-| `preset` | string | `none` | 预设 id（`none` / `aurora` / `sunset` / `emerald` / `midnight` / `sand` / `slate` / `custom` / `bing`） |
+| `preset` | string | `none` | 预设 id（`none` / `aurora` / `sunset` / `emerald` / `custom` / `bing`） |
 | `opacity` | number | `1` | 背景不透明度（0.05–1，步进 0.05） |
 | `blur` | number | `0` | 背景模糊半径 px（0–32） |
 | `fill` | `cover`/`contain`/`tile` | `cover` | 图片填充方式 |
@@ -156,6 +156,9 @@ pnpm run build      # 产出 lib/index.js（Node 半边）与 lib/client.js（�
 - 取图只在两种时机发生：点击「获取今日壁纸/换一张」，或开启自动更新后进入界面时对齐今日；命中本地缓存即零下载
 
 ## 常见问题
+
+**升级后原来的「夜空 / 沙丘 / 石板」背景不见了**
+这三套内置预设已按需求移除，只保留极光 / 落日 / 翡翠。旧的 `preset: midnight/sand/slate` 设置会被**安全回退为无背景**（不会报错，也不会卡住界面），在设置里另选一套预设或上传图片即可。
 
 **上传返回 413（Payload Too Large）**
 图片超过 50 MiB 上限。选择更小的图片，或在 `src/background-settings.ts` 调整 `BACKGROUND_ASSET_MAX_BYTES` 后重建。
