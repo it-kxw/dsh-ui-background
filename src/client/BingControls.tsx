@@ -80,23 +80,29 @@ export function BingControls({ t, settings, applyBing, setBingMarket, setBingUhd
 
   return (
     <>
-      <div className={css.bingRow}>
-        <span className={css.controlLabel}>{t('row.bing')}</span>
-        <button
-          type="button"
-          className={css.applyButton}
-          disabled={busy !== undefined}
-          onClick={() => { void run(active ? 'random' : 'latest') }}
-        >
-          {buttonLabel}
-        </button>
-        <BingOptions
-          t={t}
-          settings={settings}
-          onMarket={(market) => { changeOption(() => { setBingMarket(market) }) }}
-          onUhd={(enabled) => { changeOption(() => { setBingUhd(enabled) }) }}
-          onAutoRefresh={setBingAutoRefresh}
-        />
+      {/* 与「不透明度 / 模糊 / 填充方式」共用同一套「72px 标签 + 内容」网格：
+          窄屏时按钮与开关在内容列内换行，不会与标签错位。 */}
+      <div className={css.controlRow}>
+        <span className={css.controlLabel} id="background-bing-label">{t('row.bing')}</span>
+        <div className={css.controlBody} role="group" aria-labelledby="background-bing-label">
+          <button
+            type="button"
+            className={css.applyButton}
+            disabled={busy !== undefined}
+            // 取图是异步动作：让读屏知道按钮正在忙，而不是"点了没反应"。
+            aria-busy={busy !== undefined}
+            onClick={() => { void run(active ? 'random' : 'latest') }}
+          >
+            {buttonLabel}
+          </button>
+          <BingOptions
+            t={t}
+            settings={settings}
+            onMarket={(market) => { changeOption(() => { setBingMarket(market) }) }}
+            onUhd={(enabled) => { changeOption(() => { setBingUhd(enabled) }) }}
+            onAutoRefresh={setBingAutoRefresh}
+          />
+        </div>
       </div>
       {active && settings.bingDate !== '' && (
         <div className={css.ratioHint}>

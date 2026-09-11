@@ -149,135 +149,162 @@ export function BackgroundRow(
   return (
     <div className={css.group}>
       <div className={css.title}>{t('row.title')}</div>
-      <div className={css.presetRow}>
-        <button
-          type="button"
-          className={clsx(css.presetCard, settings.preset === BACKGROUND_PRESET_NONE && css.selected)}
-          aria-pressed={settings.preset === BACKGROUND_PRESET_NONE}
-          onClick={() => { setPreset(BACKGROUND_PRESET_NONE) }}
-        >
-          <div className={css.preview} />
-          {t('preset.none')}
-        </button>
-        {BACKGROUND_PRESETS.map(preset => (
+
+      {/* 来源组：预设卡片 / 上传 / 必应壁纸。子组标签用 aria-labelledby 关联，
+          读屏会把整组读成「来源，分组」而不是一串孤立按钮。 */}
+      <div className={css.cluster} role="group" aria-labelledby="background-source-label">
+        <div className={css.subLabel} id="background-source-label">{t('row.group.source')}</div>
+        <div className={css.presetRow}>
           <button
-            key={preset.id}
             type="button"
-            className={clsx(css.presetCard, settings.preset === preset.id && css.selected)}
-            aria-pressed={settings.preset === preset.id}
-            onClick={() => { setPreset(preset.id) }}
+            className={clsx(css.presetCard, settings.preset === BACKGROUND_PRESET_NONE && css.selected)}
+            aria-pressed={settings.preset === BACKGROUND_PRESET_NONE}
+            onClick={() => { setPreset(BACKGROUND_PRESET_NONE) }}
           >
-            <div className={css.preview} style={{ backgroundImage: preset.light }} />
-            {t(preset.labelKey)}
+            <div className={css.preview} />
+            {t('preset.none')}
           </button>
-        ))}
-      </div>
-      <div className={css.imageRow}>
-        <button
-          type="button"
-          className={css.applyButton}
-          disabled={uploading}
-          onClick={() => { fileInputRef.current?.click() }}
-        >
-          {uploading ? t('row.uploading') : t('row.upload')}
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/gif,image/webp,image/avif"
-          hidden
-          onChange={(event) => { void handleFileChange(event) }}
-        />
-      </div>
-      {customActive && dims !== undefined && (
-        <div className={css.ratioHint}>
-          {t('row.ratio', {
-            image: formatAspect(dims.width, dims.height),
-            window: formatAspect(viewport.width, viewport.height),
-          })}
+          {BACKGROUND_PRESETS.map(preset => (
+            <button
+              key={preset.id}
+              type="button"
+              className={clsx(css.presetCard, settings.preset === preset.id && css.selected)}
+              aria-pressed={settings.preset === preset.id}
+              onClick={() => { setPreset(preset.id) }}
+            >
+              <div className={css.preview} style={{ backgroundImage: preset.light }} />
+              {t(preset.labelKey)}
+            </button>
+          ))}
         </div>
-      )}
-      {uploadError && (
-        <div className={css.errorHint} role="alert">
-          {t('row.uploadError')}
-        </div>
-      )}
-      <BingControls
-        t={t}
-        settings={settings}
-        applyBing={applyBing}
-        setBingMarket={setBingMarket}
-        setBingUhd={setBingUhd}
-        setBingAutoRefresh={setBingAutoRefresh}
-      />
-      <div className={css.controlRow}>
-        <label className={css.controlLabel} htmlFor="background-opacity">{t('row.opacity')}</label>
-        <input
-          id="background-opacity"
-          className={css.slider}
-          type="range"
-          min={BACKGROUND_OPACITY_MIN}
-          max={BACKGROUND_OPACITY_MAX}
-          step={BACKGROUND_OPACITY_STEP}
-          value={settings.opacity}
-          onChange={(event) => { setOpacity(Number(event.target.value)) }}
-        />
-        <span className={css.controlValue}>{percentText(settings.opacity)}</span>
-      </div>
-      <div className={css.controlRow}>
-        <label className={css.controlLabel} htmlFor="background-blur">{t('row.blur')}</label>
-        <input
-          id="background-blur"
-          className={css.slider}
-          type="range"
-          min={BACKGROUND_BLUR_MIN}
-          max={BACKGROUND_BLUR_MAX}
-          step={BACKGROUND_BLUR_STEP}
-          value={settings.blur}
-          onChange={(event) => { setBlur(Number(event.target.value)) }}
-        />
-        <span className={css.controlValue}>{settings.blur}px</span>
-      </div>
-      <div className={css.pillRow}>
-        {BACKGROUND_FILLS.map(fill => (
+        <div className={css.imageRow}>
+          {/* 行内只保留一个实心主 CTA（必应取图），上传降级为幽灵按钮。 */}
           <button
-            key={fill}
             type="button"
-            className={clsx(css.pill, settings.fill === fill && css.selected)}
-            aria-pressed={settings.fill === fill}
-            onClick={() => { setFill(fill) }}
+            className={css.ghostButton}
+            disabled={uploading}
+            onClick={() => { fileInputRef.current?.click() }}
           >
-            {t(FILL_LABEL_KEY[fill])}
+            {uploading ? t('row.uploading') : t('row.upload')}
           </button>
-        ))}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp,image/avif"
+            hidden
+            onChange={(event) => { void handleFileChange(event) }}
+          />
+        </div>
+        {customActive && dims !== undefined && (
+          <div className={css.ratioHint}>
+            {t('row.ratio', {
+              image: formatAspect(dims.width, dims.height),
+              window: formatAspect(viewport.width, viewport.height),
+            })}
+          </div>
+        )}
+        {uploadError && (
+          <div className={css.errorHint} role="alert">
+            {t('row.uploadError')}
+          </div>
+        )}
+        <BingControls
+          t={t}
+          settings={settings}
+          applyBing={applyBing}
+          setBingMarket={setBingMarket}
+          setBingUhd={setBingUhd}
+          setBingAutoRefresh={setBingAutoRefresh}
+        />
       </div>
-      <div className={css.pillRow}>
-        {/* 动态特效单选：关闭 / 流光 / 粒子（互斥，同时只能开启一个）。 */}
-        <button
-          type="button"
-          className={clsx(css.pill, !settings.streaks && !settings.particles && css.selected)}
-          aria-pressed={!settings.streaks && !settings.particles}
-          onClick={() => { setStreaks(false); setParticles(false) }}
-        >
-          {t('row.effect.off')}
-        </button>
-        <button
-          type="button"
-          className={clsx(css.pill, settings.streaks && css.selected)}
-          aria-pressed={settings.streaks}
-          onClick={() => { setStreaks(true) }}
-        >
-          {t('row.streaks')}
-        </button>
-        <button
-          type="button"
-          className={clsx(css.pill, settings.particles && css.selected)}
-          aria-pressed={settings.particles}
-          onClick={() => { setParticles(true) }}
-        >
-          {t('row.particles')}
-        </button>
+
+      {/* 显示组：三行共用「72px 标签 + 内容」网格，窄屏时内容列内换行。 */}
+      <div className={css.cluster} role="group" aria-labelledby="background-display-label">
+        <div className={css.subLabel} id="background-display-label">{t('row.group.display')}</div>
+        <div className={css.controlRow}>
+          <label className={css.controlLabel} htmlFor="background-opacity">{t('row.opacity')}</label>
+          <div className={css.controlBody}>
+            <input
+              id="background-opacity"
+              className={css.slider}
+              type="range"
+              min={BACKGROUND_OPACITY_MIN}
+              max={BACKGROUND_OPACITY_MAX}
+              step={BACKGROUND_OPACITY_STEP}
+              value={settings.opacity}
+              // 读屏读「100%」而不是裸数字「1」。
+              aria-valuetext={percentText(settings.opacity)}
+              onChange={(event) => { setOpacity(Number(event.target.value)) }}
+            />
+            <span className={css.controlValue}>{percentText(settings.opacity)}</span>
+          </div>
+        </div>
+        <div className={css.controlRow}>
+          <label className={css.controlLabel} htmlFor="background-blur">{t('row.blur')}</label>
+          <div className={css.controlBody}>
+            <input
+              id="background-blur"
+              className={css.slider}
+              type="range"
+              min={BACKGROUND_BLUR_MIN}
+              max={BACKGROUND_BLUR_MAX}
+              step={BACKGROUND_BLUR_STEP}
+              value={settings.blur}
+              aria-valuetext={`${settings.blur}px`}
+              onChange={(event) => { setBlur(Number(event.target.value)) }}
+            />
+            <span className={css.controlValue}>{settings.blur}px</span>
+          </div>
+        </div>
+        <div className={css.controlRow}>
+          <span className={css.controlLabel} id="background-fill-label">{t('row.fill')}</span>
+          <div className={css.controlBody} role="group" aria-labelledby="background-fill-label">
+            {BACKGROUND_FILLS.map(fill => (
+              <button
+                key={fill}
+                type="button"
+                className={clsx(css.pill, settings.fill === fill && css.selected)}
+                aria-pressed={settings.fill === fill}
+                onClick={() => { setFill(fill) }}
+              >
+                {t(FILL_LABEL_KEY[fill])}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
+
+      {/* 特效组：关闭 / 流光 / 粒子（互斥，同时只能开启一个）。 */}
+      <div className={css.cluster} role="group" aria-labelledby="background-effects-label">
+        <div className={css.subLabel} id="background-effects-label">{t('row.group.effects')}</div>
+        <div className={css.controlBody}>
+          <button
+            type="button"
+            className={clsx(css.pill, !settings.streaks && !settings.particles && css.selected)}
+            aria-pressed={!settings.streaks && !settings.particles}
+            onClick={() => { setStreaks(false); setParticles(false) }}
+          >
+            {t('row.effect.off')}
+          </button>
+          <button
+            type="button"
+            className={clsx(css.pill, settings.streaks && css.selected)}
+            aria-pressed={settings.streaks}
+            onClick={() => { setStreaks(true) }}
+          >
+            {t('row.streaks')}
+          </button>
+          <button
+            type="button"
+            className={clsx(css.pill, settings.particles && css.selected)}
+            aria-pressed={settings.particles}
+            onClick={() => { setParticles(true) }}
+          >
+            {t('row.particles')}
+          </button>
+        </div>
+      </div>
+
       {active && (
         <button type="button" className={css.clearButton} onClick={clear}>
           {t('row.clear')}

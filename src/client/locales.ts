@@ -10,6 +10,9 @@
 /** 简体中文词典（键集之源）。 */
 export const zh = {
   'row.title': '背景',
+  'row.group.source': '来源',
+  'row.group.display': '显示',
+  'row.group.effects': '特效',
   'row.opacity': '不透明度',
   'row.blur': '模糊',
   'row.fill': '填充方式',
@@ -48,6 +51,9 @@ export type BackgroundLocaleKey = keyof typeof zh
 /** 英文词典：与 zh 键集一一对应。 */
 export const en = {
   'row.title': 'Background',
+  'row.group.source': 'Source',
+  'row.group.display': 'Display',
+  'row.group.effects': 'Effects',
   'row.opacity': 'Opacity',
   'row.blur': 'Blur',
   'row.fill': 'Fill',

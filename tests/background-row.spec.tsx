@@ -178,6 +178,41 @@ describe('BackgroundRow 动态特效单选', () => {
   })
 })
 
+describe('BackgroundRow 分组与无障碍', () => {
+  it('渲染来源/显示/特效三个子组，且每个可点控件组都有可读名称', () => {
+    const { props } = makeProps()
+    const view = render(<BackgroundRow {...props} />)
+    for (const name of ['来源', '显示', '特效']) {
+      expect(view.getByRole('group', { name })).not.toBeNull()
+    }
+    // 填充方式与必应区块此前完全没有标签，只能靠猜；现在有可见标签命名。
+    expect(view.getByRole('group', { name: '填充方式' })).not.toBeNull()
+    expect(view.getByRole('group', { name: '必应壁纸' })).not.toBeNull()
+  })
+
+  it('滑块提供可读的 aria-valuetext（百分比 / px），而非裸数字', () => {
+    const { props } = makeProps({ opacity: 0.5, blur: 8 })
+    const view = render(<BackgroundRow {...props} />)
+    const sliders = view.getAllByRole('slider')
+    expect(sliders[0]!.getAttribute('aria-valuetext')).toBe('50%')
+    expect(sliders[1]!.getAttribute('aria-valuetext')).toBe('8px')
+  })
+
+  it('必应取图进行中：按钮禁用并播报 aria-busy，完成后恢复', async () => {
+    const { props, applyBing } = makeProps()
+    let release: () => void = () => {}
+    applyBing.mockImplementation(() => new Promise<void>((resolve) => { release = resolve }))
+    const view = render(<BackgroundRow {...props} />)
+    fireEvent.click(view.getByRole('button', { name: '获取今日壁纸' }))
+    await waitFor(() => expect(view.getByRole('button', { name: '获取中…' })).not.toBeNull())
+    const busyButton = view.getByRole('button', { name: '获取中…' }) as HTMLButtonElement
+    expect(busyButton.getAttribute('aria-busy')).toBe('true')
+    expect(busyButton.disabled).toBe(true)
+    release()
+    await waitFor(() => expect(view.getByRole('button', { name: '获取今日壁纸' })).not.toBeNull())
+  })
+})
+
 describe('BackgroundRow 必应壁纸', () => {
   it('未激活时显示「获取今日壁纸」，点击触发 applyBing(latest)', async () => {
     const { props, applyBing } = makeProps()

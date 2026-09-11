@@ -1,6 +1,55 @@
-/* 背景设置行：标题 + 预设卡片组 + 滑块/填充/自定义图片控件。
- * 布局节奏对齐 ui-theme 的 AppearanceRow（gap 8、pad 16/0、0.5px hairline
- * 分隔线、宽度由 section 列裁切）。 */
+/* 背景设置行：标题 + 三个子组（来源 / 显示 / 特效）。
+ *
+ * 布局与视觉逐项对齐宿主既有惯例，不自造风格：
+ * - 行节奏、标题字号、hairline 分隔线 → ui-theme/AppearanceRow.module.css
+ * - 焦点环 / 过渡时长 / 减弱动效兜底 → 全宿主通行做法（2px 品牌色环、120ms）
+ * - 按钮实心与幽灵、按压状态层 → ui-primitives/Button.module.css
+ * - 胶囊选中态 → ui-primitives/Pill.module.css（ghost-active 专用 token）
+ * - 输入框（select）度量与 focus → ui-settings-plugins/fields.module.css
+ *
+ * 分组原因：填充方式与动态特效两排胶囊原本没有任何标签，用户只能靠猜；
+ * 子组标签把「来源 / 显示 / 特效」显式化。组内 8px、组间 12px（4 的倍数），
+ * 与宿主 4/8 间距节奏一致。
+ *
+ * 刻意不改：控件高度不放大到 44px —— DSH 是桌面紧凑密度（宿主胶囊 24px、
+ * Button sm 28px），44pt 触控标准属移动端 App 范畴。 */
+
+/* 过渡：宿主统一 100–160ms + --ds-ease-in-out（ui-theme/base.css 已定义）。 */
+.presetCard,
+.pill,
+.applyButton,
+.ghostButton,
+.clearButton,
+.select {
+  transition:
+    background-color 120ms var(--ds-ease-in-out, ease),
+    border-color 120ms var(--ds-ease-in-out, ease),
+    color 120ms var(--ds-ease-in-out, ease);
+}
+
+/* 键盘可达性：所有可点元素都要有可见焦点环（宿主同款 2px + 2px 偏移）。
+ * 此前只有悬浮按钮有，键盘用户在本行完全看不到焦点在哪。 */
+.presetCard:focus-visible,
+.pill:focus-visible,
+.applyButton:focus-visible,
+.ghostButton:focus-visible,
+.clearButton:focus-visible,
+.checkbox input:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 2px;
+}
+
+/* 跟随系统「减少动态效果」关闭过渡（宿主每个带动画的组件都有这一块）。 */
+@media (prefers-reduced-motion: reduce) {
+  .presetCard,
+  .pill,
+  .applyButton,
+  .ghostButton,
+  .clearButton,
+  .select {
+    transition: none;
+  }
+}
 
 .group {
   display: flex;
@@ -17,6 +66,26 @@
   color: var(--dsw-alias-label-primary);
 }
 
+/* 子组容器：组内 8px（来自 .group 的 gap），组间再补 4px 得 12px。 */
+.cluster {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cluster + .cluster {
+  margin-top: 4px;
+}
+
+/* 子组标签：比一级标题低一档（14 → 12px）；中等字重与说明文本区分开
+ * （宿主设置项标签即 500 字重）。 */
+.subLabel {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
 /* 预设卡片组：none + 各预设，窄屏换行。 */
 .presetRow {
   display: flex;
@@ -25,7 +94,8 @@
   flex-wrap: wrap;
 }
 
-/* 预设卡片：上半是背景预览块（数据驱动的 CSS 值），下半是标签。 */
+/* 预设卡片：上半是背景预览块（数据驱动的 CSS 值），下半是标签。
+ * 圆角向宿主 AppearanceRow 的 .themeCube（r20）看齐，保持同一视觉家族。 */
 .presetCard {
   box-sizing: border-box;
   flex: 1 1 128px;
@@ -35,7 +105,7 @@
   gap: 6px;
   padding: 8px;
   border: 0.5px solid var(--dsw-alias-border-l4);
-  border-radius: 16px;
+  border-radius: 20px;
   background: transparent;
   font: inherit;
   font-size: 14px;
@@ -48,7 +118,12 @@
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
-/* 选中卡片的描边与填充（对齐 AppearanceRow.selected 的处理方式）。 */
+/* 按压反馈：宿主 ghost 表面的按压态 token。 */
+.presetCard:active:not(.selected) {
+  background: var(--dsw-alias-interactive-bg-active, var(--dsw-alias-interactive-bg-hover));
+}
+
+/* 选中卡片的描边与填充（与宿主 .themeCube.selected 完全同款 token）。 */
 .selected {
   background: var(--dsw-alias-bg-module-platform);
   border-color: var(--dsw-static-neutral-bluish-400);
@@ -56,26 +131,36 @@
 
 /* 预览块：展示该预设的浅色值（数据值，非硬编码颜色）。 */
 .preview {
-  height: 40px;
-  border-radius: 10px;
+  height: 44px;
+  border-radius: 12px;
   border: 0.5px solid var(--dsw-alias-border-l2);
   background-position: center;
   background-size: cover;
 }
 
-/* 控件组：一行标签 + 滑块（或按钮组）。 */
+/* 字段行：统一「72px 标签 + 自适应内容」网格。
+ * 滑块、填充方式、必应区块共用同一网格，窄屏时控件在内容列内换行，
+ * 不会像原来那样与标签错位。 */
 .controlRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
 }
 
 .controlLabel {
-  flex: 0 0 auto;
-  min-width: 72px;
   font-size: 13px;
   line-height: 20px;
   color: var(--dsw-alias-label-secondary);
+}
+
+/* 控件容器：同一行内的多个控件（滑块+读数、按钮+下拉+开关）在此自行换行。 */
+.controlBody {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .controlValue {
@@ -95,17 +180,13 @@
   accent-color: var(--dsw-alias-brand-primary);
 }
 
-/* 填充方式与预设切换共用的小胶囊按钮组。 */
-.pillRow {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
+/* 填充方式与动态特效共用的胶囊按钮组。 */
 .pill {
+  min-height: 28px;
   padding: 4px 12px;
   border: 0.5px solid var(--dsw-alias-border-l3);
   border-radius: 999px;
+  corner-shape: round;
   background: transparent;
   font: inherit;
   font-size: 13px;
@@ -118,40 +199,90 @@
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
-.pill.selected {
-  background: var(--dsw-alias-bg-module-platform);
-  border-color: var(--dsw-static-neutral-bluish-400);
+.pill:active:not(.selected) {
+  background: var(--dsw-alias-interactive-bg-active, var(--dsw-alias-interactive-bg-hover));
 }
 
-/* 图片上传行（本地文件选择器入口）。 */
+/* 选中胶囊：改用宿主 Pill 的 ghost-active 专用 token；描边用 inset 阴影实现，
+ * 不改变盒模型，选中前后不会产生 0.5px 抖动。 */
+.pill.selected {
+  background: var(--dsw-alias-button-ghost-active-fill);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--dsw-alias-button-ghost-active-border);
+}
+
+/* 次要动作行（上传图片）。 */
 .imageRow {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
+/* 实心主按钮（行内唯一主 CTA：获取今日壁纸 / 换一张）。
+ * 文字色用宿主 Button.primary 的 label-primary-foreground，而非此前猜测性的
+ * button-contrast-fill（那是填充类 token，不是文字色）。 */
 .applyButton {
-  padding: 4px 12px;
+  position: relative;
+  overflow: hidden;
+  min-height: 28px;
+  padding: 4px 14px;
   border: 0;
   border-radius: 999px;
+  corner-shape: round;
   background: var(--dsw-alias-button-primary-fill);
   font: inherit;
   font-size: 13px;
   line-height: 20px;
-  color: var(--dsw-alias-button-contrast-fill);
+  color: var(--dsw-alias-label-primary-foreground);
   cursor: pointer;
 }
 
-.applyButton:hover {
-  background: var(--dsw-alias-button-info-hover);
+.applyButton:hover:not(:disabled) {
+  background: var(--dsw-alias-button-primary-hover);
 }
 
-/* 清除背景：危险语义的幽灵按钮。 */
-.clearButton {
-  align-self: flex-start;
-  padding: 4px 12px;
+/* 实心按钮的按压态：把状态层叠在自身填充之上（interactive-bg-active 的本来
+ * 用法），直接替换 background 会让品牌色消失。 */
+.applyButton:active:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--dsw-alias-interactive-bg-active);
+}
+
+/* 幽灵按钮（上传图片）：描边 + 透明底，与宿主的 outline 变体同款。
+ * 行内只留一个实心主 CTA，次要动作降级为幽灵。 */
+.ghostButton {
+  min-height: 28px;
+  padding: 4px 14px;
   border: 0.5px solid var(--dsw-alias-border-l3);
   border-radius: 999px;
+  corner-shape: round;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+}
+
+.ghostButton:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.ghostButton:active:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-active, var(--dsw-alias-interactive-bg-hover));
+}
+
+/* 清除背景：告警语义的幽灵按钮（可逆操作，用 warn 而非 error 级）。 */
+.clearButton {
+  align-self: flex-start;
+  min-height: 28px;
+  padding: 4px 14px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: 999px;
+  corner-shape: round;
   background: transparent;
   font: inherit;
   font-size: 13px;
@@ -165,51 +296,57 @@
   color: var(--dsw-alias-state-warn-primary);
 }
 
-.applyButton:disabled {
-  opacity: 0.6;
-  cursor: default;
+/* 禁用态：对齐宿主 Button（0.4 不透明度 + not-allowed 光标）。 */
+.applyButton:disabled,
+.ghostButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
-/* 图片与窗口比例对比提示：次要说明文本。 */
+/* 图片与窗口比例对比提示：次要说明文本。
+ * 宿主 hint 用 tertiary，这里刻意保留 secondary：本行压在 45% 半透明底衬与
+ * 任意背景图之上，tertiary 的对比度不足以保证可读。 */
 .ratioHint {
   font-size: 12px;
   line-height: 18px;
   color: var(--dsw-alias-label-secondary);
 }
 
-/* 上传失败提示：告警语义文本。 */
+/* 失败提示：字段级错误文案用宿主的 label-error token
+ * （ui-settings-plugins/fields.module.css 同款）。 */
 .errorHint {
   font-size: 12px;
   line-height: 18px;
-  color: var(--dsw-alias-state-warn-primary);
+  color: var(--dsw-alias-label-error);
 }
 
-/* 必应壁纸区：一行控件（取图按钮 + 地区下拉 + 两个开关），窄屏换行。 */
-.bingRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-/* 地区下拉：与 pill 同尺寸的轻量原生控件（避免引入自定义弹层）。 */
+/* 地区下拉：对齐宿主设置项输入框（height 34 / radius 8 / bg-layer-3 /
+ * border-l4；focus 走品牌色描边而非 outline）。 */
 .select {
-  padding: 3px 8px;
-  border: 0.5px solid var(--dsw-alias-border-l3);
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 8px;
-  background: transparent;
+  background: var(--dsw-alias-bg-layer-3);
   font: inherit;
   font-size: 13px;
-  line-height: 20px;
+  line-height: 1.5;
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
 }
 
-/* 复选开关：文案走次要色，勾选框用品牌强调色。 */
+.select:focus-visible {
+  outline: none;
+  border-color: var(--dsw-alias-brand-primary);
+}
+
+/* 复选开关：保留原生 checkbox（语义与键盘行为最稳），强调色取宿主
+ * RiskConfirmation 中原生 checkbox 的同款 token。 */
 .checkbox {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  min-height: 28px;
   font-size: 13px;
   line-height: 20px;
   color: var(--dsw-alias-label-secondary);
@@ -217,5 +354,6 @@
 }
 
 .checkbox input {
-  accent-color: var(--dsw-alias-brand-primary);
+  accent-color: var(--dsw-alias-button-primary-fill);
+  cursor: pointer;
 }

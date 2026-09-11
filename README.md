@@ -33,13 +33,14 @@
 - **持久化**：所有选择写入 `$DSH_HOME/settings.yaml`，刷新后保持
 - **可读性保护**：面板底色降为 45% 同色系半透明底衬，背景可见同时文字保持对比度
 - **动态特效**：可在背景之上叠加**动态流光**（窄亮斜向光带，深色配色加色发光）或**粒子**（随配色自适应的漂浮亮点）效果（二选一、互斥开启；随背景激活，尊重系统「减少动态效果」）
+- **界面细节**：设置行按「来源 / 显示 / 特效」分组，全部控件可键盘操作（可见焦点环、滑块朗读百分比与像素值），动效与配色逐项对齐 DSH 自身的设计 token
 - **零侵入**：不修改 DSH 内核、不占用任何既有 UI 座位；插件卸载后界面完全恢复默认
 
 ## 界面与效果
 
 | 位置 | 内容 |
 |---|---|
-| 设置 → 通用 → 「背景」行 | 预设选择、上传、**必应壁纸（获取今日 / 换一张 / 地区 / 4K / 每日自动更新）**、不透明度、模糊、填充方式、动态流光/粒子开关、清除背景、比例提示 |
+| 设置 → 通用 → 「背景」行 | 按 **来源**（预设卡片 / 上传图片 / 必应壁纸）、**显示**（不透明度、模糊、填充方式）、**特效**（关闭 / 动态流光 / 粒子效果）三组排列；底部为清除背景与比例提示 |
 | 界面右下角悬浮胶囊 | 单击循环切换背景（显示当前背景名） |
 
 ## 安装
@@ -55,7 +56,7 @@
 
 ```sh
 dsh plugin --profile web add dsh-ui-background        # npm 已发布时
-dsh plugin --profile web add ./dsh-ui-background-0.4.0.tgz   # 或本地打包文件
+dsh plugin --profile web add ./dsh-ui-background-0.5.0.tgz   # 或本地打包文件
 ```
 
 `dsh plugin` 会自动：安装依赖 → 把插件追加进 profile 的 bundle 层（`dsh.profile.bundles`）→ 插件行随组合生效。**然后重启一次 `dsh web`**，刷新浏览器即可看到设置 → 通用 →「背景」行与右下角悬浮按钮。
@@ -205,7 +206,7 @@ curl -s -o /dev/null -w "%{http_code}" -X POST -H "content-type: application/jso
 ```sh
 pnpm install     # 安装依赖（@deepseek-ai/* 以 link: 指向本机 DSH 检出）
 pnpm run build   # tsc 声明 + tsdown 双半边产物
-pnpm test        # vitest（138 用例：schema/预设/运行时/DOM/组件/特效/必应取图/路由端到端）
+pnpm test        # vitest（142 用例：schema/预设/运行时/DOM/组件/特效/必应取图/路由端到端）
 pnpm run typecheck
 ```
 

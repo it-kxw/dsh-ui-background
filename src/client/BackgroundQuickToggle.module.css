@@ -21,13 +21,28 @@
   line-height: 20px;
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
+  transition:
+    background-color 120ms var(--ds-ease-in-out, ease),
+    color 120ms var(--ds-ease-in-out, ease);
 }
 
 .toggle:hover {
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
+/* 按压反馈：宿主 ghost 表面的按压态 token。 */
+.toggle:active {
+  background: var(--dsw-alias-interactive-bg-active, var(--dsw-alias-interactive-bg-hover));
+}
+
 .toggle:focus-visible {
   outline: 2px solid var(--dsw-alias-brand-primary);
   outline-offset: 2px;
+}
+
+/* 跟随系统「减少动态效果」（宿主每个带动画的组件都有这一块）。 */
+@media (prefers-reduced-motion: reduce) {
+  .toggle {
+    transition: none;
+  }
 }
