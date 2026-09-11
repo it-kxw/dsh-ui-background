@@ -22,6 +22,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import { BACKGROUND_PRESET_NONE, BACKGROUND_SETTINGS_NAMESPACE, type BackgroundFill, type BackgroundSettings } from '../background-settings.ts'
 import { BackgroundPresenter } from './background-presenter.ts'
+import { BackgroundEffects } from './effects-renderer.ts'
 import { BackgroundRuntime } from './background-runtime.ts'
 import { createBackgroundStore } from './background-store.ts'
 import { installBackgroundStyles } from './styles.ts'
@@ -57,13 +58,17 @@ export function apply(ctx: ClientContext): void {
   installBackgroundStyles(ctx)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-ui-background: dictionaries')
 
-  // 运行时：scope 持久化 + presenter 投影 DOM + adopt 跟随 host 发布。
+  // 运行时：scope 持久化 + presenter 投影 DOM + 特效投影画布 + adopt 跟随 host。
   const host = ctx.settingsScope.bind<BackgroundSettings>({ namespace: BACKGROUND_SETTINGS_NAMESPACE })
   const presenter = new BackgroundPresenter()
-  const runtime = new BackgroundRuntime(host, presenter)
+  const effects = new BackgroundEffects()
+  const runtime = new BackgroundRuntime(host, presenter, effects)
   ctx.effect(() => host.subscribe(() => { runtime.adopt() }), 'dsh-ui-background: settings adoption')
-  // 卸载时冲刷防抖中的持久化写，避免最后一笔设置丢失。
-  ctx.effect(() => () => { runtime.dispose() }, 'dsh-ui-background: persist flush')
+  // 卸载时冲刷防抖中的持久化写，并随插件释放特效渲染器（取消动画帧、移除画布）。
+  ctx.effect(() => () => {
+    runtime.dispose()
+    effects.dispose()
+  }, 'dsh-ui-background: persist flush')
 
   // store 镜像：两个注册项各自持有实例，apply 维护两个 bound 一并同步。
   const store = createBackgroundStore()
@@ -87,6 +92,8 @@ export function apply(ctx: ClientContext): void {
       setOpacity: (value) => { runtime.setOpacity(value) },
       setBlur: (value) => { runtime.setBlur(value) },
       setFill: (fill) => { runtime.setFill(fill) },
+      setStreaks: (enabled) => { runtime.setStreaks(enabled) },
+      setParticles: (enabled) => { runtime.setParticles(enabled) },
       clear: () => {
         // 复合清除：预设回 none、图片清空（图片持久化为异步，fire-and-forget）。
         runtime.setPreset(BACKGROUND_PRESET_NONE)

@@ -54,3 +54,14 @@ body[data-ds-dark-theme] .dsh-bg-layer {
   background-color: var(--dsw-static-neutral-bluish-950, transparent);
   background-image: var(--dsh-bg-image-dark, var(--dsh-bg-image-light, none));
 }
+
+/* 动态特效画布层：与背景层同级负 z-index（DOM 在其后 → 绘制于背景之上、
+ * 内容之下），不拦截任何交互；像素尺寸由渲染器按视口与 DPR 设置。 */
+.dsh-effects-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+}

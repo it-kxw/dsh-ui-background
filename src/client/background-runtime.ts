@@ -15,8 +15,8 @@ import {
   BACKGROUND_BLUR_FIELD, BACKGROUND_BLUR_MAX, BACKGROUND_BLUR_MIN,
   BACKGROUND_FILL_FIELD, BACKGROUND_FILLS, BACKGROUND_IMAGE_FIELD,
   BACKGROUND_OPACITY_FIELD, BACKGROUND_OPACITY_MAX, BACKGROUND_OPACITY_MIN,
-  BACKGROUND_PRESET_CUSTOM, BACKGROUND_PRESET_FIELD, BACKGROUND_PRESET_NONE,
-  DEFAULT_BACKGROUND_SETTINGS,
+  BACKGROUND_PARTICLES_FIELD, BACKGROUND_PRESET_CUSTOM, BACKGROUND_PRESET_FIELD,
+  BACKGROUND_PRESET_NONE, BACKGROUND_STREAKS_FIELD, DEFAULT_BACKGROUND_SETTINGS,
   type BackgroundFill, type BackgroundSettings,
 } from '../background-settings.ts'
 import type { BackgroundPresenter } from './background-presenter.ts'
@@ -42,6 +42,19 @@ function sameSettings(left: Readonly<BackgroundSettings>, right: Readonly<Backgr
     && left.blur === right.blur
     && left.fill === right.fill
     && left.imagePath === right.imagePath
+    && left.streaks === right.streaks
+    && left.particles === right.particles
+}
+
+/**
+ * 动态特效投影目标：每次发布与 presenter 平级调用；由特效渲染器
+ * （BackgroundEffects）实现，装配方负责其 dispose 生命周期。
+ */
+export interface BackgroundEffectsLike {
+  /** 依最新设置投影特效开关；未开启时回收特效。 */
+  apply(settings: Readonly<BackgroundSettings>): void
+  /** 卸载清理（取消动画帧、移除画布）。 */
+  dispose(): void
 }
 
 /**
@@ -52,7 +65,8 @@ function sameSettings(left: Readonly<BackgroundSettings>, right: Readonly<Backgr
  * 一次设置 RPC + YAML 落盘（高频拖动会串行堆积导致卡顿）。
  *
  * @param host - 装配方 bind 的同名设置 scope。
- * @param presenter - 负责 DOM 投影的呈现器。
+ * @param presenter - 负责背景 DOM 投影的呈现器。
+ * @param effects - 可选的动态特效投影目标（与 presenter 平级；缺省时跳过）。
  */
 export class BackgroundRuntime {
   /** 当前生效设置（adopt 或写操作后更新）。 */
@@ -68,6 +82,7 @@ export class BackgroundRuntime {
   constructor(
     private readonly host: SettingsScope<BackgroundSettings>,
     private readonly presenter: BackgroundPresenter,
+    private readonly effects?: BackgroundEffectsLike,
   ) {
     // 构造时即吸收一次：scope 可能已带 host 已接受的 section。
     this.adopt()
@@ -182,12 +197,43 @@ export class BackgroundRuntime {
     this.publish()
   }
 
-  /** 发布新快照：投影到 DOM、递增 revision、通知订阅者。 */
+  /**
+   * 切换动态流光特效。
+   * @param enabled - true 开启、false 关闭。
+   * @throws 非布尔值。
+   */
+  setStreaks(enabled: boolean): void {
+    if (typeof enabled !== 'boolean') {
+      throw new Error(`background streaks expects a boolean, received ${typeof enabled}`)
+    }
+    if (this.settings.streaks === enabled) return
+    this.settings = { ...this.settings, streaks: enabled }
+    this.schedulePersist(BACKGROUND_STREAKS_FIELD, enabled)
+    this.publish()
+  }
+
+  /**
+   * 切换粒子特效。
+   * @param enabled - true 开启、false 关闭。
+   * @throws 非布尔值。
+   */
+  setParticles(enabled: boolean): void {
+    if (typeof enabled !== 'boolean') {
+      throw new Error(`background particles expects a boolean, received ${typeof enabled}`)
+    }
+    if (this.settings.particles === enabled) return
+    this.settings = { ...this.settings, particles: enabled }
+    this.schedulePersist(BACKGROUND_PARTICLES_FIELD, enabled)
+    this.publish()
+  }
+
+  /** 发布新快照：投影到背景呈现器与特效渲染器、递增 revision、通知订阅者。 */
   private publish(): void {
     this.revision += 1
     this.settings = Object.freeze({ ...this.settings })
     this.snapshot = Object.freeze({ settings: this.settings, revision: this.revision })
     this.presenter.apply(this.settings)
+    this.effects?.apply(this.settings)
     for (const listener of [...this.listeners]) {
       try {
         listener()

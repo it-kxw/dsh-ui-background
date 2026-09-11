@@ -18,6 +18,8 @@ export const BACKGROUND_OPACITY_FIELD = 'opacity'
 export const BACKGROUND_BLUR_FIELD = 'blur'
 export const BACKGROUND_FILL_FIELD = 'fill'
 export const BACKGROUND_IMAGE_FIELD = 'imagePath'
+export const BACKGROUND_STREAKS_FIELD = 'streaks'
+export const BACKGROUND_PARTICLES_FIELD = 'particles'
 
 /** 自定义图片背景的预设标记：选了本地图片时 preset 字段置为它。 */
 export const BACKGROUND_PRESET_CUSTOM = 'custom'
@@ -41,13 +43,15 @@ export const BACKGROUND_BLUR_STEP = 1
 /** 无背景预设 id（也是设置文档的默认值）。 */
 export const BACKGROUND_PRESET_NONE = 'none'
 
-/** 默认设置：无背景、全不透明、不模糊、铺满、无图片。 */
+/** 默认设置：无背景、全不透明、不模糊、铺满、无图片、无动态特效。 */
 export const DEFAULT_BACKGROUND_SETTINGS: Readonly<BackgroundSettings> = Object.freeze({
   preset: BACKGROUND_PRESET_NONE,
   opacity: 1,
   blur: 0,
   fill: 'cover',
   imagePath: '',
+  streaks: false,
+  particles: false,
 })
 
 /**
@@ -66,6 +70,10 @@ export interface BackgroundSettings {
   fill: BackgroundFill
   /** 自定义图片的本地绝对路径；空串表示未设置。 */
   imagePath: string
+  /** 动态流光特效开关（在背景之上叠加缓慢漂移的光带）。 */
+  streaks: boolean
+  /** 粒子特效开关（在背景之上叠加漂浮微粒）。 */
+  particles: boolean
 }
 
 /** 浏览器半边请求 Node 半边图片资源的固定路由前缀。 */

@@ -31,13 +31,14 @@
 - **精细调节**：不透明度（0.05–1）、模糊（0–32 px）、填充方式（铺满 / 适应 / 平铺）
 - **持久化**：所有选择写入 `$DSH_HOME/settings.yaml`，刷新后保持
 - **可读性保护**：面板底色降为 45% 同色系半透明底衬，背景可见同时文字保持对比度
+- **动态特效**：可在背景之上叠加**动态流光**与**粒子**效果（独立开关，随背景激活，尊重系统「减少动态效果」）
 - **零侵入**：不修改 DSH 内核、不占用任何既有 UI 座位；插件卸载后界面完全恢复默认
 
 ## 界面与效果
 
 | 位置 | 内容 |
 |---|---|
-| 设置 → 通用 → 「背景」行 | 预设选择、上传/路径、不透明度、模糊、填充方式、清除背景、比例提示 |
+| 设置 → 通用 → 「背景」行 | 预设选择、上传、不透明度、模糊、填充方式、动态流光/粒子开关、清除背景、比例提示 |
 | 界面右下角悬浮胶囊 | 单击循环切换背景（显示当前背景名） |
 
 ## 安装
@@ -49,15 +50,16 @@
 
 ### 方式一：安装预构建包（推荐，一条命令）
 
-本插件已打包为 `dsh-ui-background-0.1.0.tgz`（`dsh.bundle` 组合包，内含 Node 半边、浏览器半边与 patch 层）。在你的机器上执行：
+本插件为 `dsh.bundle` 组合包（内含 Node 半边、浏览器半边与 patch 层），以 npm 发布或本地 tarball 提供。安装（任选其一）：
 
 ```sh
-dsh plugin --profile web add ./dsh-ui-background-0.1.0.tgz
+dsh plugin --profile web add dsh-ui-background        # npm 已发布时
+dsh plugin --profile web add ./dsh-ui-background-0.2.0.tgz   # 或本地打包文件
 ```
 
 `dsh plugin` 会自动：安装依赖 → 把插件追加进 profile 的 bundle 层（`dsh.profile.bundles`）→ 插件行随组合生效。**然后重启一次 `dsh web`**，刷新浏览器即可看到设置 → 通用 →「背景」行与右下角悬浮按钮。
 
-> 安装到 npm 注册表后，同样的命令按包名安装即可：`dsh plugin --profile web add dsh-ui-background`。发布前请先在仓库执行 `pnpm install && pnpm run build && pnpm pack` 确保 `lib/` 产物打齐（`files` 已限定发布内容）。
+> 发布前请先在仓库执行 `pnpm install && pnpm run build && pnpm pack` 确保 `lib/` 产物打齐（`files` 已限定发布内容）。
 
 卸载：
 
@@ -111,6 +113,8 @@ pnpm run build      # 产出 lib/index.js（Node 半边）与 lib/client.js（�
 | `blur` | number | `0` | 背景模糊半径 px（0–32） |
 | `fill` | `cover`/`contain`/`tile` | `cover` | 图片填充方式 |
 | `imagePath` | string | `''` | 自定义图片的本地路径（上传后自动填写） |
+| `streaks` | boolean | `false` | 动态流光特效开关（背景之上叠加漂移光带） |
+| `particles` | boolean | `false` | 粒子特效开关（背景之上叠加漂浮微粒） |
 
 未知的 `preset` 值会被安全回退为 `none`，不会导致设置失效。
 
@@ -156,12 +160,18 @@ pnpm run build      # 产出 lib/index.js（Node 半边）与 lib/client.js（�
 **提示「上传失败：文件格式或大小不符合要求」**
 扩展名须为 `png / jpg / jpeg / gif / webp / avif` 且 ≤ 50 MiB。
 
+**动态流光/粒子不显示**
+特效随「背景激活」生效：先选择一个背景（预设或上传图），再开启特效；系统开启「减少动态效果」时特效也会自动停。
+
+**特效会耗资源吗**
+流光/粒子仅在开启且有背景时运行 `requestAnimationFrame`，粒子数按视口面积自适应（封顶 140）、DPR 封顶 2；全部关闭即零开销。
+
 ## 开发
 
 ```sh
 pnpm install     # 安装依赖（@deepseek-ai/* 以 link: 指向本机 DSH 检出）
 pnpm run build   # tsc 声明 + tsdown 双半边产物
-pnpm test        # vitest（71+ 用例：schema/预设/运行时/DOM/组件/路由端到端）
+pnpm test        # vitest（85 用例：schema/预设/运行时/DOM/组件/特效/路由端到端）
 pnpm run typecheck
 ```
 

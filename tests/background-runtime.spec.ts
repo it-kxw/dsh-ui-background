@@ -162,6 +162,33 @@ describe('BackgroundRuntime 写操作', () => {
     runtime.dispose()
     expect(host.set).toHaveBeenCalledTimes(1)
   })
+
+  it('setStreaks/setParticles 防抖持久化并发布；非法值抛错且无副作用', () => {
+    const { runtime, host, apply, snapshots } = make()
+    runtime.setStreaks(true)
+    runtime.setParticles(true)
+    expect(host.set).not.toHaveBeenCalled()
+    advancePersist()
+    expect(host.set).toHaveBeenCalledWith('streaks', true)
+    expect(host.set).toHaveBeenCalledWith('particles', true)
+    expect(runtime.getSnapshot().settings).toMatchObject({ streaks: true, particles: true })
+    expect(apply).toHaveBeenCalledTimes(2)
+    expect(snapshots).toHaveLength(2)
+    const before = runtime.getSnapshot().revision
+    expect(() => runtime.setStreaks('yes' as never)).toThrow('boolean')
+    expect(() => runtime.setParticles(1 as never)).toThrow('boolean')
+    expect(runtime.getSnapshot().revision).toBe(before)
+  })
+
+  it('特效开关同值写为无操作', () => {
+    const { runtime, host, snapshots } = make()
+    runtime.setStreaks(true)
+    runtime.setStreaks(true)
+    runtime.setParticles(false) // 默认已是 false
+    advancePersist()
+    expect(host.set).toHaveBeenCalledTimes(1)
+    expect(snapshots).toHaveLength(1)
+  })
 })
 
 describe('BackgroundRuntime adopt 吸收', () => {
@@ -184,6 +211,19 @@ describe('BackgroundRuntime adopt 吸收', () => {
     runtime.adopt()
     expect(runtime.getSnapshot().revision).toBe(1)
     expect(snapshots).toHaveLength(1)
+  })
+
+  it('adopt 吸收含特效字段的 section，不写回', () => {
+    const { runtime, host } = make()
+    host.publish({
+      status: 'ready',
+      value: { ...DEFAULT_BACKGROUND_SETTINGS, streaks: true, particles: true },
+      revision: 1,
+      writable: true,
+    })
+    runtime.adopt()
+    expect(runtime.getSnapshot().settings).toMatchObject({ streaks: true, particles: true })
+    expect(host.set).not.toHaveBeenCalled()
   })
 })
 

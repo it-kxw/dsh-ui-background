@@ -15,6 +15,8 @@ const DEFAULTS = {
   blur: 0,
   fill: 'cover',
   imagePath: '',
+  streaks: false,
+  particles: false,
 } as const
 
 describe('BackgroundSettingsSchema 默认值', () => {
@@ -56,5 +58,14 @@ describe('BackgroundSettingsSchema 边界校验', () => {
   it('preset 与 imagePath 是自由字符串（未知 preset 由运行时回退）', () => {
     expect(BackgroundSettingsSchema({ preset: 'future-preset' }).preset).toBe('future-preset')
     expect(BackgroundSettingsSchema({ imagePath: 'D:/a.png' }).imagePath).toBe('D:/a.png')
+  })
+
+  it('特效开关：默认关闭、接受显式布尔、拒绝非布尔值', () => {
+    expect(BackgroundSettingsSchema({}).streaks).toBe(false)
+    expect(BackgroundSettingsSchema({}).particles).toBe(false)
+    expect(BackgroundSettingsSchema({ streaks: true }).streaks).toBe(true)
+    expect(BackgroundSettingsSchema({ particles: true }).particles).toBe(true)
+    expect(() => BackgroundSettingsSchema({ streaks: 'yes' })).toThrow()
+    expect(() => BackgroundSettingsSchema({ particles: 1 })).toThrow()
   })
 })

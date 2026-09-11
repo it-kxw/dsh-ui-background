@@ -22,6 +22,7 @@ import {
  * 背景设置的持久化 schema。
  * - preset 用自由字符串而非枚举：允许预设表后续演进，未知值由运行时回退。
  * - imagePath 默认空串：settings 文档里字段始终存在且为 JSON 友好形状。
+ * - streaks/particles 为动态特效开关，默认关闭。
  */
 export const BackgroundSettingsSchema: z<BackgroundSettings> = z.object({
   preset: z.string().default(BACKGROUND_PRESET_NONE),
@@ -37,4 +38,6 @@ export const BackgroundSettingsSchema: z<BackgroundSettings> = z.object({
     .default(0),
   fill: z.union([...BACKGROUND_FILLS]).default('cover'),
   imagePath: z.string().default(''),
+  streaks: z.boolean().default(false),
+  particles: z.boolean().default(false),
 })

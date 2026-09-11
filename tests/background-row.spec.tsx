@@ -27,13 +27,15 @@ function makeProps(over: Partial<BackgroundSettings> = {}): {
     setOpacity: ReturnType<typeof vi.fn>
     setBlur: ReturnType<typeof vi.fn>
     setFill: ReturnType<typeof vi.fn>
+    setStreaks: ReturnType<typeof vi.fn>
+    setParticles: ReturnType<typeof vi.fn>
     clear: ReturnType<typeof vi.fn>
   }
   uploadImage: ReturnType<typeof vi.fn>
 } {
   const callbacks = {
     setPreset: vi.fn(), setOpacity: vi.fn(), setBlur: vi.fn(),
-    setFill: vi.fn(), clear: vi.fn(),
+    setFill: vi.fn(), setStreaks: vi.fn(), setParticles: vi.fn(), clear: vi.fn(),
   }
   const uploadImage = vi.fn().mockResolvedValue({ path: '', width: 0, height: 0, fill: 'cover' })
   const settings = { ...DEFAULT_BACKGROUND_SETTINGS, ...over }
@@ -135,5 +137,29 @@ describe('BackgroundRow 清除按钮', () => {
     const { props } = makeProps({ preset: 'custom', imagePath: '' })
     const view = render(<BackgroundRow {...props} />)
     expect(view.queryByRole('button', { name: '清除背景' })).toBeNull()
+  })
+})
+
+describe('BackgroundRow 动态特效开关', () => {
+  it('渲染两个开关并反映选中态', () => {
+    const { props } = makeProps({ streaks: true, particles: false })
+    const view = render(<BackgroundRow {...props} />)
+    const byText = view.getByText('动态流光')
+    expect(byText).not.toBeNull()
+    expect(view.getByText('粒子效果')).not.toBeNull()
+    const checkboxes = view.getAllByRole('checkbox')
+    expect(checkboxes).toHaveLength(2)
+    expect((checkboxes[0] as HTMLInputElement).checked).toBe(true)
+    expect((checkboxes[1] as HTMLInputElement).checked).toBe(false)
+  })
+
+  it('点击开关触发 setStreaks / setParticles', () => {
+    const { props, callbacks } = makeProps()
+    const view = render(<BackgroundRow {...props} />)
+    const checkboxes = view.getAllByRole('checkbox')
+    fireEvent.click(checkboxes[0]!)
+    expect(callbacks.setStreaks).toHaveBeenCalledWith(true)
+    fireEvent.click(checkboxes[1]!)
+    expect(callbacks.setParticles).toHaveBeenCalledWith(true)
   })
 })
