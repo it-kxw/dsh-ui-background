@@ -140,26 +140,28 @@ describe('BackgroundRow 清除按钮', () => {
   })
 })
 
-describe('BackgroundRow 动态特效开关', () => {
-  it('渲染两个开关并反映选中态', () => {
+describe('BackgroundRow 动态特效单选', () => {
+  it('渲染关闭/流光/粒子三个单选项并反映选中态', () => {
     const { props } = makeProps({ streaks: true, particles: false })
     const view = render(<BackgroundRow {...props} />)
-    const byText = view.getByText('动态流光')
-    expect(byText).not.toBeNull()
-    expect(view.getByText('粒子效果')).not.toBeNull()
-    const checkboxes = view.getAllByRole('checkbox')
-    expect(checkboxes).toHaveLength(2)
-    expect((checkboxes[0] as HTMLInputElement).checked).toBe(true)
-    expect((checkboxes[1] as HTMLInputElement).checked).toBe(false)
+    expect(view.getByRole('button', { name: '关闭' }).getAttribute('aria-pressed')).toBe('false')
+    expect(view.getByRole('button', { name: '动态流光' }).getAttribute('aria-pressed')).toBe('true')
+    expect(view.getByRole('button', { name: '粒子效果' }).getAttribute('aria-pressed')).toBe('false')
+    cleanup()
+    const particlesOn = render(<BackgroundRow {...makeProps({ particles: true }).props} />)
+    expect(particlesOn.getByRole('button', { name: '粒子效果' }).getAttribute('aria-pressed')).toBe('true')
+    expect(particlesOn.getByRole('button', { name: '动态流光' }).getAttribute('aria-pressed')).toBe('false')
   })
 
-  it('点击开关触发 setStreaks / setParticles', () => {
+  it('点击单选项触发对应回调（开流光/开粒子/关闭两者）', () => {
     const { props, callbacks } = makeProps()
     const view = render(<BackgroundRow {...props} />)
-    const checkboxes = view.getAllByRole('checkbox')
-    fireEvent.click(checkboxes[0]!)
+    fireEvent.click(view.getByRole('button', { name: '动态流光' }))
     expect(callbacks.setStreaks).toHaveBeenCalledWith(true)
-    fireEvent.click(checkboxes[1]!)
+    fireEvent.click(view.getByRole('button', { name: '粒子效果' }))
     expect(callbacks.setParticles).toHaveBeenCalledWith(true)
+    fireEvent.click(view.getByRole('button', { name: '关闭' }))
+    expect(callbacks.setStreaks).toHaveBeenCalledWith(false)
+    expect(callbacks.setParticles).toHaveBeenCalledWith(false)
   })
 })

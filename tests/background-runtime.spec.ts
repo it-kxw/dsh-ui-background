@@ -166,12 +166,14 @@ describe('BackgroundRuntime 写操作', () => {
   it('setStreaks/setParticles 防抖持久化并发布；非法值抛错且无副作用', () => {
     const { runtime, host, apply, snapshots } = make()
     runtime.setStreaks(true)
-    runtime.setParticles(true)
-    expect(host.set).not.toHaveBeenCalled()
     advancePersist()
     expect(host.set).toHaveBeenCalledWith('streaks', true)
+    // 开启粒子时互斥关闭流光。
+    runtime.setParticles(true)
+    advancePersist()
     expect(host.set).toHaveBeenCalledWith('particles', true)
-    expect(runtime.getSnapshot().settings).toMatchObject({ streaks: true, particles: true })
+    expect(host.set).toHaveBeenCalledWith('streaks', false)
+    expect(runtime.getSnapshot().settings).toMatchObject({ streaks: false, particles: true })
     expect(apply).toHaveBeenCalledTimes(2)
     expect(snapshots).toHaveLength(2)
     const before = runtime.getSnapshot().revision
@@ -188,6 +190,24 @@ describe('BackgroundRuntime 写操作', () => {
     advancePersist()
     expect(host.set).toHaveBeenCalledTimes(1)
     expect(snapshots).toHaveLength(1)
+  })
+
+  it('流光与粒子互斥：开启其一自动关闭另一个', () => {
+    const { runtime, host, snapshots } = make()
+    runtime.setParticles(true)
+    runtime.setStreaks(true)
+    // 开启流光时粒子被强制关闭并一并持久化。
+    expect(runtime.getSnapshot().settings).toMatchObject({ streaks: true, particles: false })
+    advancePersist()
+    expect(host.set).toHaveBeenCalledWith('streaks', true)
+    expect(host.set).toHaveBeenCalledWith('particles', false)
+
+    runtime.setParticles(true)
+    expect(runtime.getSnapshot().settings).toMatchObject({ streaks: false, particles: true })
+    advancePersist()
+    expect(host.set).toHaveBeenCalledWith('particles', true)
+    expect(host.set).toHaveBeenCalledWith('streaks', false)
+    expect(snapshots).toHaveLength(3)
   })
 })
 

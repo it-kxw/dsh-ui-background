@@ -96,14 +96,31 @@ describe('渲染循环启停', () => {
     effects.dispose()
   })
 
-  it('帧推进绘制流光与粒子（clearRect/渐变/粒子 arc）', () => {
+  it('仅开启流光：绘制渐变不绘制粒子', () => {
     const effects = new BackgroundEffects()
-    effects.apply(enabledSettings())
-    driveFrame() // 首帧：初始化绘制
+    effects.apply(enabledSettings({ particles: false }))
     driveFrame()
     expect(mockCtx.calls.clearRect).toHaveBeenCalled()
-    expect(mockCtx.calls.createLinearGradient).toHaveBeenCalled() // 流光
+    expect(mockCtx.calls.createLinearGradient).toHaveBeenCalled() // 流光渐变
+    expect(mockCtx.calls.arc).not.toHaveBeenCalled() // 无粒子
+    effects.dispose()
+  })
+
+  it('仅开启粒子：绘制粒子不绘制渐变', () => {
+    const effects = new BackgroundEffects()
+    effects.apply(enabledSettings({ streaks: false }))
+    driveFrame()
     expect(mockCtx.calls.arc).toHaveBeenCalled() // 粒子
+    expect(mockCtx.calls.createLinearGradient).not.toHaveBeenCalled() // 无流光
+    effects.dispose()
+  })
+
+  it('两字段同时为真（手改设置）时仅流光优先绘制（互斥防御）', () => {
+    const effects = new BackgroundEffects()
+    effects.apply(enabledSettings({ streaks: true, particles: true }))
+    driveFrame()
+    expect(mockCtx.calls.createLinearGradient).toHaveBeenCalled()
+    expect(mockCtx.calls.arc).not.toHaveBeenCalled()
     effects.dispose()
   })
 
@@ -169,5 +186,46 @@ describe('降级与清理', () => {
     ;(ResizeObserver as unknown as { trigger(): void }).trigger()
     expect(mockCtx.calls.setTransform.mock.calls.length).toBeGreaterThan(transformCalls)
     effects.dispose()
+  })
+})
+
+describe('配色适配', () => {
+  it('浅色配色下粒子为深蓝灰（白粒子在浅背景不可见）', () => {
+    document.body.removeAttribute('data-ds-dark-theme')
+    const effects = new BackgroundEffects()
+    effects.apply(enabledSettings({ streaks: false }))
+    driveFrame()
+    expect(mockCtx.ctx.fillStyle).toBe('rgba(80, 92, 115, 1)')
+    effects.dispose()
+  })
+
+  it('深色配色下粒子为白色', () => {
+    document.body.setAttribute('data-ds-dark-theme', '')
+    const effects = new BackgroundEffects()
+    effects.apply(enabledSettings({ streaks: false }))
+    driveFrame()
+    expect(mockCtx.ctx.fillStyle).toBe('rgba(255, 255, 255, 1)')
+    effects.dispose()
+  })
+
+  it('流光颜色随配色：浅色为深蓝灰系、深色为白/浅蓝系', () => {
+    document.body.removeAttribute('data-ds-dark-theme')
+    const light = new BackgroundEffects()
+    light.apply(enabledSettings({ particles: false }))
+    driveFrame()
+    const lightGradient = mockCtx.calls.createLinearGradient.mock.results[0]?.value as { addColorStop: ReturnType<typeof vi.fn> }
+    const lightStops = lightGradient.addColorStop.mock.calls.map(call => call[1] as string)
+    expect(lightStops.some(stop => stop.includes('80, 92, 115'))).toBe(true)
+    light.dispose()
+
+    vi.clearAllMocks()
+    document.body.setAttribute('data-ds-dark-theme', '')
+    const dark = new BackgroundEffects()
+    dark.apply(enabledSettings({ particles: false }))
+    driveFrame()
+    const darkGradient = mockCtx.calls.createLinearGradient.mock.results[0]?.value as { addColorStop: ReturnType<typeof vi.fn> }
+    const darkStops = darkGradient.addColorStop.mock.calls.map(call => call[1] as string)
+    expect(darkStops.some(stop => stop.includes('255, 255, 255'))).toBe(true)
+    dark.dispose()
   })
 })

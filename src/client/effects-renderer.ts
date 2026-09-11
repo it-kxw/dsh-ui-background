@@ -25,14 +25,22 @@ export const EFFECTS_CANVAS_CLASS = 'dsh-effects-canvas'
 /** 设备像素比上限：更高分辨率只增开销，画面增益有限。 */
 const EFFECTS_MAX_DPR = 2
 
-/** 粒子密度：每 12000 平方 CSS 像素约 1 个。 */
-const PARTICLE_AREA_DENSITY = 12000
+/** 粒子密度：每 8000 平方 CSS 像素约 1 个（更浓，满足「明显」诉求）。 */
+const PARTICLE_AREA_DENSITY = 8000
 
 /** 粒子数量上限。 */
-const PARTICLE_CAP = 140
+const PARTICLE_CAP = 160
 
-/** 流光条数（固定三条，避免过度占用合成）。 */
-const STREAK_COUNT = 3
+/** 流光条数（四条，增强存在感；互斥下单开其一不超量）。 */
+const STREAK_COUNT = 4
+
+/** 粒子填充色：深色配色用白、浅色配色用深蓝灰（保证两种背景都可见）。 */
+const PARTICLE_FILL_DARK = 'rgba(255, 255, 255, 1)'
+const PARTICLE_FILL_LIGHT = 'rgba(80, 92, 115, 1)'
+
+/** 流光渐变 RGB（成对：深色配色白/浅蓝；浅色配色深蓝灰系，浅背景下同样明显）。 */
+const STREAK_RGB_DARK = ['255, 255, 255', '150, 185, 255'] as const
+const STREAK_RGB_LIGHT = ['80, 92, 115', '120, 145, 180'] as const
 
 /** 一个漂浮粒子。 */
 interface Particle {
@@ -144,7 +152,7 @@ export class BackgroundEffects implements BackgroundEffectsLike {
     this.ctx?.clearRect(0, 0, this.canvas!.width, this.canvas!.height)
   }
 
-  /** 一帧：更新并绘制流光/粒子，续订下一帧。 */
+  /** 一帧：更新并绘制流光/粒子，续订下一帧。运行时保证互斥；双 true（手改设置）时流光优先。 */
   private tick(time: number): void {
     const ctx = this.ctx
     const width = this.viewportWidth
@@ -156,7 +164,7 @@ export class BackgroundEffects implements BackgroundEffectsLike {
     ctx.clearRect(0, 0, width, height)
     const seconds = time / 1000
     if (this.settings.streaks) this.drawStreaks(ctx, width, height, seconds)
-    if (this.settings.particles) this.drawParticles(ctx, width, height, seconds)
+    else if (this.settings.particles) this.drawParticles(ctx, width, height, seconds)
     this.frameRequest = requestAnimationFrame((next) => { this.tick(next) })
   }
 
@@ -195,7 +203,12 @@ export class BackgroundEffects implements BackgroundEffectsLike {
     if (this.settings.particles) this.ensureParticles()
   }
 
-  /** 生成或重建粒子（覆盖当前视口，数量按面积自适应）。 */
+  /** 是否深色配色：主题呈现器在 body 打 `data-ds-dark-theme` 标记；每帧读取开销可忽略。 */
+  private isDarkScheme(): boolean {
+    return typeof document !== 'undefined' && document.body.hasAttribute('data-ds-dark-theme')
+  }
+
+  /** 生成或重建粒子（覆盖当前视口，数量按面积自适应；明显度参数：更大、更亮、更快）。 */
   private ensureParticles(): void {
     const count = Math.min(
       Math.floor((this.viewportWidth * this.viewportHeight) / PARTICLE_AREA_DENSITY),
@@ -205,55 +218,57 @@ export class BackgroundEffects implements BackgroundEffectsLike {
     this.particles = Array.from({ length: count }, () => ({
       x: random() * this.viewportWidth,
       y: random() * this.viewportHeight,
-      vx: (random() - 0.5) * 12,
-      vy: 6 + random() * 18,
-      radius: 0.6 + random() * 1.6,
-      alpha: 0.12 + random() * 0.3,
+      vx: (random() - 0.5) * 18,
+      vy: 10 + random() * 24,
+      radius: 0.9 + random() * 2,
+      alpha: 0.35 + random() * 0.45,
       phase: random() * Math.PI * 2,
     }))
   }
 
-  /** 生成或重建流光条（三条，位置/速度/长度随机）。 */
+  /** 生成或重建流光条（四条，位置/速度/长度随机；明显度参数：更宽、更长、更快）。 */
   private ensureStreaks(): void {
     const random = Math.random
     this.streaks = Array.from({ length: STREAK_COUNT }, () => ({
       y: 0.2 + random() * 0.6,
-      speed: 0.02 + random() * 0.04,
-      length: 0.25 + random() * 0.3,
-      height: 14 + random() * 26,
+      speed: 0.03 + random() * 0.05,
+      length: 0.3 + random() * 0.4,
+      height: 20 + random() * 36,
       phase: random(),
     }))
   }
 
-  /** 绘制三条横向漂移的渐变光带。 */
+  /** 绘制四条横向漂移的渐变光带（颜色随配色：深色白/浅蓝，浅色深蓝灰）。 */
   private drawStreaks(ctx: CanvasRenderingContext2D, width: number, height: number, seconds: number): void {
-    for (const streak of this.streaks) {
+    const palette = this.isDarkScheme() ? STREAK_RGB_DARK : STREAK_RGB_LIGHT
+    for (const [index, streak] of this.streaks.entries()) {
       // 横向位置循环扫描：wrap(-1,1) 保证双向不露空。
       const progress = wrap(streak.phase + seconds * streak.speed)
       const centerX = progress * (width + 2 * streak.length * width) - streak.length * width
       const centerY = streak.y * height
-      const breath = 0.65 + 0.35 * Math.sin(seconds * 0.8 + streak.phase * Math.PI * 2)
-      const alpha = 0.06 * breath
+      const breath = 0.6 + 0.4 * Math.sin(seconds * 0.8 + streak.phase * Math.PI * 2)
+      const alpha = 0.22 * breath
+      const color = palette[index % palette.length]!
       const gradient = ctx.createLinearGradient(centerX - streak.length * width, 0, centerX + streak.length * width, 0)
-      gradient.addColorStop(0, 'rgba(255, 255, 255, 0)')
-      gradient.addColorStop(0.5, `rgba(255, 255, 255, ${alpha})`)
-      gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
+      gradient.addColorStop(0, `rgba(${color}, 0)`)
+      gradient.addColorStop(0.5, `rgba(${color}, ${alpha})`)
+      gradient.addColorStop(1, `rgba(${color}, 0)`)
       ctx.fillStyle = gradient
       ctx.fillRect(centerX - streak.length * width, centerY - streak.height, streak.length * width * 2, streak.height * 2)
     }
   }
 
-  /** 绘制漂浮粒子（缓慢上浮 + 横向摆动，低透明度呼吸）。 */
+  /** 绘制漂浮粒子（上浮 + 横向摆动，呼吸明显；颜色随配色适配）。 */
   private drawParticles(ctx: CanvasRenderingContext2D, width: number, height: number, seconds: number): void {
-    ctx.fillStyle = 'rgba(255, 255, 255, 1)'
+    ctx.fillStyle = this.isDarkScheme() ? PARTICLE_FILL_DARK : PARTICLE_FILL_LIGHT
     for (const particle of this.particles) {
       // 上浮并轻微横向摆动；出边界后回绕到另一侧（保持恒定粒子数、无分配）。
-      particle.x += (particle.vx + Math.sin(seconds + particle.phase) * 8) * 0.016
+      particle.x += (particle.vx + Math.sin(seconds + particle.phase) * 12) * 0.016
       particle.y -= particle.vy * 0.016
       if (particle.x < 0) particle.x += width
       else if (particle.x > width) particle.x -= width
       if (particle.y < 0) particle.y += height
-      ctx.globalAlpha = particle.alpha * (0.6 + 0.4 * Math.sin(seconds * 1.2 + particle.phase))
+      ctx.globalAlpha = particle.alpha * (0.5 + 0.5 * Math.sin(seconds * 1.2 + particle.phase))
       ctx.beginPath()
       ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2)
       ctx.fill()

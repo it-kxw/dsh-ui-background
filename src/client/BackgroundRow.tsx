@@ -234,25 +234,32 @@ export function BackgroundRow(
           </button>
         ))}
       </div>
-      <div className={css.switchRow}>
-        <label className={css.switchLabel}>
-          <input
-            type="checkbox"
-            checked={settings.streaks}
-            onChange={(event) => { setStreaks(event.target.checked) }}
-          />
+      <div className={css.pillRow}>
+        {/* 动态特效单选：关闭 / 流光 / 粒子（互斥，同时只能开启一个）。 */}
+        <button
+          type="button"
+          className={clsx(css.pill, !settings.streaks && !settings.particles && css.selected)}
+          aria-pressed={!settings.streaks && !settings.particles}
+          onClick={() => { setStreaks(false); setParticles(false) }}
+        >
+          {t('row.effect.off')}
+        </button>
+        <button
+          type="button"
+          className={clsx(css.pill, settings.streaks && css.selected)}
+          aria-pressed={settings.streaks}
+          onClick={() => { setStreaks(true) }}
+        >
           {t('row.streaks')}
-        </label>
-      </div>
-      <div className={css.switchRow}>
-        <label className={css.switchLabel}>
-          <input
-            type="checkbox"
-            checked={settings.particles}
-            onChange={(event) => { setParticles(event.target.checked) }}
-          />
+        </button>
+        <button
+          type="button"
+          className={clsx(css.pill, settings.particles && css.selected)}
+          aria-pressed={settings.particles}
+          onClick={() => { setParticles(true) }}
+        >
           {t('row.particles')}
-        </label>
+        </button>
       </div>
       {active && (
         <button type="button" className={css.clearButton} onClick={clear}>

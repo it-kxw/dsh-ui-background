@@ -198,7 +198,7 @@ export class BackgroundRuntime {
   }
 
   /**
-   * 切换动态流光特效。
+   * 切换动态流光特效（与粒子互斥：开启流光会同时关闭粒子）。
    * @param enabled - true 开启、false 关闭。
    * @throws 非布尔值。
    */
@@ -207,13 +207,19 @@ export class BackgroundRuntime {
       throw new Error(`background streaks expects a boolean, received ${typeof enabled}`)
     }
     if (this.settings.streaks === enabled) return
-    this.settings = { ...this.settings, streaks: enabled }
+    const mustDisableParticles = enabled && this.settings.particles
+    this.settings = {
+      ...this.settings,
+      streaks: enabled,
+      particles: mustDisableParticles ? false : this.settings.particles,
+    }
     this.schedulePersist(BACKGROUND_STREAKS_FIELD, enabled)
+    if (mustDisableParticles) this.schedulePersist(BACKGROUND_PARTICLES_FIELD, false)
     this.publish()
   }
 
   /**
-   * 切换粒子特效。
+   * 切换粒子特效（与流光互斥：开启粒子会同时关闭流光）。
    * @param enabled - true 开启、false 关闭。
    * @throws 非布尔值。
    */
@@ -222,8 +228,14 @@ export class BackgroundRuntime {
       throw new Error(`background particles expects a boolean, received ${typeof enabled}`)
     }
     if (this.settings.particles === enabled) return
-    this.settings = { ...this.settings, particles: enabled }
+    const mustDisableStreaks = enabled && this.settings.streaks
+    this.settings = {
+      ...this.settings,
+      particles: enabled,
+      streaks: mustDisableStreaks ? false : this.settings.streaks,
+    }
     this.schedulePersist(BACKGROUND_PARTICLES_FIELD, enabled)
+    if (mustDisableStreaks) this.schedulePersist(BACKGROUND_STREAKS_FIELD, false)
     this.publish()
   }
 
