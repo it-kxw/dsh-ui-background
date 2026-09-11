@@ -22,23 +22,45 @@ function enabledSettings(over: Partial<BackgroundSettings> = {}): BackgroundSett
   }
 }
 
-/** mock 2d 上下文：记录绘制调用。 */
+/** mock 2d 上下文：记录绘制调用与混合模式切换。 */
 type MockCtx = ReturnType<typeof makeMockCtx>
 function makeMockCtx() {
   const calls = {
     setTransform: vi.fn(), clearRect: vi.fn(), fillRect: vi.fn(),
     beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(),
+    save: vi.fn(), restore: vi.fn(), translate: vi.fn(), rotate: vi.fn(),
     createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
   }
+  // 混合模式是普通属性，用访问器记录赋值序列供断言（加色/普通混合的行为差异靠它验证）。
+  const compositeOps: string[] = []
+  let compositeOperation = 'source-over'
   return {
     calls,
+    compositeOps,
     ctx: {
       setTransform: calls.setTransform, clearRect: calls.clearRect, fillRect: calls.fillRect,
       beginPath: calls.beginPath, arc: calls.arc, fill: calls.fill,
+      save: calls.save, restore: calls.restore, translate: calls.translate, rotate: calls.rotate,
       createLinearGradient: calls.createLinearGradient,
       fillStyle: '', globalAlpha: 1,
+      get globalCompositeOperation(): string { return compositeOperation },
+      set globalCompositeOperation(value: string) { compositeOperation = value; compositeOps.push(value) },
     } as unknown as CanvasRenderingContext2D,
   }
+}
+
+/** 本帧全部渐变停止点（形如 'rgba(255, 255, 255, 0.72)'）。 */
+function gradientStops(): string[] {
+  return mockCtx.calls.createLinearGradient.mock.results
+    .flatMap(result => (result.value as { addColorStop: ReturnType<typeof vi.fn> }).addColorStop.mock.calls)
+    .map(call => call[1] as string)
+}
+
+/** 从渐变停止点里抽出 alpha 数值（用于「明显度」回归防护）。 */
+function stopAlphas(): number[] {
+  return gradientStops()
+    .map(stop => Number(/, ([\d.]+)\)$/.exec(stop)?.[1] ?? '0'))
+    .filter(alpha => !Number.isNaN(alpha))
 }
 
 let mockCtx: MockCtx
@@ -227,5 +249,62 @@ describe('配色适配', () => {
     const darkStops = darkGradient.addColorStop.mock.calls.map(call => call[1] as string)
     expect(darkStops.some(stop => stop.includes('255, 255, 255'))).toBe(true)
     dark.dispose()
+  })
+})
+
+describe('流光明显度（防「看不到」回归）', () => {
+  it('核心 alpha 峰值 ≥ 0.6（旧实现峰值仅 0.22，穿不过半透明底衬）', () => {
+    document.body.setAttribute('data-ds-dark-theme', '')
+    const effects = new BackgroundEffects()
+    effects.apply(enabledSettings({ particles: false }))
+    driveFrame()
+    expect(Math.max(...stopAlphas())).toBeGreaterThanOrEqual(0.6)
+    effects.dispose()
+  })
+
+  it('光带收窄为条带（全长 ≤ 视口 44%），不再是铺满半屏的柔光', () => {
+    const effects = new BackgroundEffects()
+    effects.apply(enabledSettings({ particles: false }))
+    driveFrame()
+    const widths = mockCtx.calls.fillRect.mock.calls.map(call => call[2] as number)
+    expect(widths.length).toBeGreaterThan(0)
+    expect(Math.max(...widths)).toBeLessThanOrEqual(window.innerWidth * 0.44)
+    effects.dispose()
+  })
+
+  it('深色配色走加色混合形成发光，浅色配色回落普通混合', () => {
+    document.body.setAttribute('data-ds-dark-theme', '')
+    const dark = new BackgroundEffects()
+    dark.apply(enabledSettings({ particles: false }))
+    driveFrame()
+    expect(mockCtx.compositeOps).toContain('lighter')
+    // 帧末必须复位：否则后续粒子会沿用加色叠加而被冲白。
+    expect(mockCtx.ctx.globalCompositeOperation).toBe('source-over')
+    dark.dispose()
+
+    // compositeOps 是普通数组，clearAllMocks 不会清它，手动归零后再验浅色分支。
+    mockCtx.compositeOps.length = 0
+    document.body.removeAttribute('data-ds-dark-theme')
+    const light = new BackgroundEffects()
+    light.apply(enabledSettings({ particles: false }))
+    driveFrame()
+    expect(mockCtx.compositeOps).not.toContain('lighter')
+    light.dispose()
+  })
+
+  it('每条光带画两层（光晕 + 高亮核心），核心比光晕更亮', () => {
+    document.body.setAttribute('data-ds-dark-theme', '')
+    const effects = new BackgroundEffects()
+    effects.apply(enabledSettings({ particles: false }))
+    driveFrame()
+    // 六条光带 × 两层 = 12 次 fillRect（无粒子），渐变也按「光晕→核心」成对生成。
+    expect(mockCtx.calls.fillRect).toHaveBeenCalledTimes(12)
+    const bands = gradientStops().map(stop => Number(/, ([\d.]+)\)$/.exec(stop)?.[1] ?? '0'))
+      .filter(alpha => alpha > 0)
+    expect(bands).toHaveLength(12)
+    for (let index = 0; index < bands.length; index += 2) {
+      expect(bands[index + 1]).toBeGreaterThan(bands[index]!)
+    }
+    effects.dispose()
   })
 })

@@ -1,6 +1,6 @@
 {
   "name": "dsh-ui-background",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "One-click DSH Web background switcher: built-in gradient/solid presets plus a local-image background with opacity, blur, fill controls, light streaks and particle effects.",
   "keywords": [
     "dsh-plugin",

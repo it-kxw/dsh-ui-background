@@ -31,7 +31,7 @@
 - **精细调节**：不透明度（0.05–1）、模糊（0–32 px）、填充方式（铺满 / 适应 / 平铺）
 - **持久化**：所有选择写入 `$DSH_HOME/settings.yaml`，刷新后保持
 - **可读性保护**：面板底色降为 45% 同色系半透明底衬，背景可见同时文字保持对比度
-- **动态特效**：可在背景之上叠加**动态流光**或**粒子**效果（二选一、互斥开启；随背景激活，尊重系统「减少动态效果」）
+- **动态特效**：可在背景之上叠加**动态流光**（窄亮斜向光带，深色配色加色发光）或**粒子**（随配色自适应的漂浮亮点）效果（二选一、互斥开启；随背景激活，尊重系统「减少动态效果」）
 - **零侵入**：不修改 DSH 内核、不占用任何既有 UI 座位；插件卸载后界面完全恢复默认
 
 ## 界面与效果
@@ -54,7 +54,7 @@
 
 ```sh
 dsh plugin --profile web add dsh-ui-background        # npm 已发布时
-dsh plugin --profile web add ./dsh-ui-background-0.2.0.tgz   # 或本地打包文件
+dsh plugin --profile web add ./dsh-ui-background-0.2.1.tgz   # 或本地打包文件
 ```
 
 `dsh plugin` 会自动：安装依赖 → 把插件追加进 profile 的 bundle 层（`dsh.profile.bundles`）→ 插件行随组合生效。**然后重启一次 `dsh web`**，刷新浏览器即可看到设置 → 通用 →「背景」行与右下角悬浮按钮。
@@ -113,7 +113,7 @@ pnpm run build      # 产出 lib/index.js（Node 半边）与 lib/client.js（�
 | `blur` | number | `0` | 背景模糊半径 px（0–32） |
 | `fill` | `cover`/`contain`/`tile` | `cover` | 图片填充方式 |
 | `imagePath` | string | `''` | 自定义图片的本地路径（上传后自动填写） |
-| `streaks` | boolean | `false` | 动态流光特效开关（与粒子互斥，开启其一自动关闭另一） |
+| `streaks` | boolean | `false` | 动态流光开关：六条窄亮斜向光带（深色配色加色发光、浅色配色深蓝灰描边）；与粒子互斥，开启其一自动关闭另一 |
 | `particles` | boolean | `false` | 粒子特效开关（与流光互斥） |
 
 未知的 `preset` 值会被安全回退为 `none`，不会导致设置失效。
@@ -171,7 +171,7 @@ pnpm run build      # 产出 lib/index.js（Node 半边）与 lib/client.js（�
 ```sh
 pnpm install     # 安装依赖（@deepseek-ai/* 以 link: 指向本机 DSH 检出）
 pnpm run build   # tsc 声明 + tsdown 双半边产物
-pnpm test        # vitest（85 用例：schema/预设/运行时/DOM/组件/特效/路由端到端）
+pnpm test        # vitest（95 用例：schema/预设/运行时/DOM/组件/特效/路由端到端）
 pnpm run typecheck
 ```
 
