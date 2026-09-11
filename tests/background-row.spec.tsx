@@ -19,7 +19,7 @@ function fakeT(key: string, params?: Record<string, unknown>): string {
     name in params ? String(params[name]) : match)
 }
 
-/** 组装 props：stub useStore 读固定设置，回调全部 spy，uploadImage 默认成功桩。 */
+/** 组装 props：stub useStore 读固定设置，回调全部 spy，uploadImage/applyBing 默认成功桩。 */
 function makeProps(over: Partial<BackgroundSettings> = {}): {
   props: BackgroundRowProps
   callbacks: {
@@ -30,14 +30,20 @@ function makeProps(over: Partial<BackgroundSettings> = {}): {
     setStreaks: ReturnType<typeof vi.fn>
     setParticles: ReturnType<typeof vi.fn>
     clear: ReturnType<typeof vi.fn>
+    setBingMarket: ReturnType<typeof vi.fn>
+    setBingUhd: ReturnType<typeof vi.fn>
+    setBingAutoRefresh: ReturnType<typeof vi.fn>
   }
   uploadImage: ReturnType<typeof vi.fn>
+  applyBing: ReturnType<typeof vi.fn>
 } {
   const callbacks = {
     setPreset: vi.fn(), setOpacity: vi.fn(), setBlur: vi.fn(),
     setFill: vi.fn(), setStreaks: vi.fn(), setParticles: vi.fn(), clear: vi.fn(),
+    setBingMarket: vi.fn(), setBingUhd: vi.fn(), setBingAutoRefresh: vi.fn(),
   }
   const uploadImage = vi.fn().mockResolvedValue({ path: '', width: 0, height: 0, fill: 'cover' })
+  const applyBing = vi.fn().mockResolvedValue(undefined)
   const settings = { ...DEFAULT_BACKGROUND_SETTINGS, ...over }
   const props = {
     t: fakeT,
@@ -45,8 +51,9 @@ function makeProps(over: Partial<BackgroundSettings> = {}): {
       selector({ settings, revision: 0 }),
     ...callbacks,
     uploadImage,
+    applyBing,
   } as unknown as BackgroundRowProps
-  return { props, callbacks, uploadImage }
+  return { props, callbacks, uploadImage, applyBing }
 }
 
 afterEach(cleanup)
@@ -163,5 +170,57 @@ describe('BackgroundRow 动态特效单选', () => {
     fireEvent.click(view.getByRole('button', { name: '关闭' }))
     expect(callbacks.setStreaks).toHaveBeenCalledWith(false)
     expect(callbacks.setParticles).toHaveBeenCalledWith(false)
+  })
+})
+
+describe('BackgroundRow 必应壁纸', () => {
+  it('未激活时显示「获取今日壁纸」，点击触发 applyBing(latest)', async () => {
+    const { props, applyBing } = makeProps()
+    const view = render(<BackgroundRow {...props} />)
+    fireEvent.click(view.getByRole('button', { name: '获取今日壁纸' }))
+    await waitFor(() => expect(applyBing).toHaveBeenCalledWith('latest'))
+  })
+
+  it('激活时按钮变「换一张」并展示标题与日期', async () => {
+    const { props, applyBing } = makeProps({
+      preset: 'bing', imagePath: 'C:/b/a.jpg', bingTitle: '地中海风情尽显', bingDate: '2026-09-10',
+    })
+    const view = render(<BackgroundRow {...props} />)
+    expect(view.getByText('地中海风情尽显 · 2026-09-10')).not.toBeNull()
+    fireEvent.click(view.getByRole('button', { name: '换一张' }))
+    await waitFor(() => expect(applyBing).toHaveBeenCalledWith('random'))
+  })
+
+  it('标题缺失时信息行退回功能区名（不出现孤立的「 · 日期」）', () => {
+    const { props } = makeProps({ preset: 'bing', imagePath: 'C:/b/a.jpg', bingDate: '2026-09-10' })
+    const view = render(<BackgroundRow {...props} />)
+    expect(view.getByText('必应壁纸 · 2026-09-10')).not.toBeNull()
+  })
+
+  it('取图失败展示提示，且不清空当前背景', async () => {
+    const { props, applyBing, callbacks } = makeProps({ preset: 'bing', imagePath: 'C:/b/a.jpg' })
+    applyBing.mockRejectedValue(new Error('boom'))
+    const view = render(<BackgroundRow {...props} />)
+    fireEvent.click(view.getByRole('button', { name: '换一张' }))
+    await waitFor(() => expect(view.getByText(/获取必应壁纸失败/)).not.toBeNull())
+    // 失败不触发任何清除/改设置动作。
+    expect(callbacks.clear).not.toHaveBeenCalled()
+    expect(callbacks.setPreset).not.toHaveBeenCalled()
+    expect(view.getByRole('button', { name: '换一张' })).not.toBeNull()
+  })
+
+  it('地区与 4K 变更触发回调；激活态下同时立即重取；自动更新开关不触发取图', async () => {
+    const { props, callbacks, applyBing } = makeProps({ preset: 'bing', imagePath: 'C:/b/a.jpg' })
+    const view = render(<BackgroundRow {...props} />)
+    fireEvent.change(view.getByRole('combobox', { name: '地区' }), { target: { value: 'en-US' } })
+    expect(callbacks.setBingMarket).toHaveBeenCalledWith('en-US')
+    const checkboxes = view.getAllByRole('checkbox')
+    fireEvent.click(checkboxes[0]!) // 4K：默认开启 → 点击关闭
+    expect(callbacks.setBingUhd).toHaveBeenCalledWith(false)
+    fireEvent.click(checkboxes[1]!) // 每日自动更新：只写设置，不取图
+    expect(callbacks.setBingAutoRefresh).toHaveBeenCalledWith(false)
+    // 地区 + 4K 各触发一次"立即按新设置重取"，自动更新不触发。
+    await waitFor(() => expect(applyBing).toHaveBeenCalledTimes(2))
+    expect(applyBing).toHaveBeenCalledWith('latest')
   })
 })

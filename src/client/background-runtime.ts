@@ -11,12 +11,17 @@
  * @date 2026-09-10
  */
 import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+// Type-only：SettingsPathOpView 为原子 mutate 的操作描述类型。
+import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import {
-  BACKGROUND_BLUR_FIELD, BACKGROUND_BLUR_MAX, BACKGROUND_BLUR_MIN,
+  BACKGROUND_BING_AUTO_REFRESH_FIELD, BACKGROUND_BING_COPYRIGHT_FIELD,
+  BACKGROUND_BING_DATE_FIELD, BACKGROUND_BING_MARKET_FIELD, BACKGROUND_BING_TITLE_FIELD,
+  BACKGROUND_BING_UHD_FIELD, BACKGROUND_BLUR_FIELD, BACKGROUND_BLUR_MAX, BACKGROUND_BLUR_MIN,
   BACKGROUND_FILL_FIELD, BACKGROUND_FILLS, BACKGROUND_IMAGE_FIELD,
   BACKGROUND_OPACITY_FIELD, BACKGROUND_OPACITY_MAX, BACKGROUND_OPACITY_MIN,
-  BACKGROUND_PARTICLES_FIELD, BACKGROUND_PRESET_CUSTOM, BACKGROUND_PRESET_FIELD,
-  BACKGROUND_PRESET_NONE, BACKGROUND_STREAKS_FIELD, DEFAULT_BACKGROUND_SETTINGS,
+  BACKGROUND_PARTICLES_FIELD, BACKGROUND_PRESET_BING, BACKGROUND_PRESET_CUSTOM,
+  BACKGROUND_PRESET_FIELD, BACKGROUND_PRESET_NONE, BACKGROUND_STREAKS_FIELD,
+  BING_MARKETS, DEFAULT_BACKGROUND_SETTINGS,
   type BackgroundFill, type BackgroundSettings,
 } from '../background-settings.ts'
 import type { BackgroundPresenter } from './background-presenter.ts'
@@ -28,6 +33,21 @@ export interface BackgroundSnapshot {
   readonly settings: Readonly<BackgroundSettings>
   /** 单调递增的变更计数。 */
   readonly revision: number
+}
+
+/**
+ * 需要随必应壁纸一并持久化的部分（服务端返回结果里与展示/渲染相关的字段）。
+ * 刻意不复用 client/bing.ts 的结果类型：运行时不该依赖取图模块（低耦合）。
+ */
+export interface BingWallpaperInput {
+  /** 服务端落盘的本地绝对路径。 */
+  path: string
+  /** 展示用标题。 */
+  title: string
+  /** 展示用日期（YYYY-MM-DD）。 */
+  date: string
+  /** 展示用版权信息。 */
+  copyright: string
 }
 
 /**
@@ -201,6 +221,83 @@ export class BackgroundRuntime {
     this.settings = trimmed === ''
       ? { ...this.settings, imagePath: '' }
       : { ...this.settings, imagePath: trimmed, preset: BACKGROUND_PRESET_CUSTOM }
+    this.publish()
+  }
+
+  /**
+   * 应用一张必应壁纸：先持久化（图片路径 + preset + 展示元数据）再发布。
+   *
+   * 与 setImagePath 同因：背景 URL 需要服务端 asset 路由按已落盘的 imagePath
+   * 授权，若先发布再异步持久化，首帧图片请求会命中旧设置返回 404（"没反应"）。
+   * 五笔写走一次原子 mutate（同一 revision）：既省往返，也避免出现"已是必应图
+   * 但 preset 还没切换"的中间态快照（会闪一下无背景）。
+   * @param wallpaper - 服务端返回的缓存路径与展示元数据。
+   * @throws 路径为空（服务端契约破坏时不写入任何字段）。
+   */
+  async setBing(wallpaper: BingWallpaperInput): Promise<void> {
+    const path = wallpaper.path.trim()
+    if (path === '') throw new Error('background bing wallpaper path is empty')
+    const ops: SettingsPathOpView[] = [
+      { op: 'set', path: [BACKGROUND_IMAGE_FIELD], value: path },
+      { op: 'set', path: [BACKGROUND_PRESET_FIELD], value: BACKGROUND_PRESET_BING },
+      { op: 'set', path: [BACKGROUND_BING_TITLE_FIELD], value: wallpaper.title },
+      { op: 'set', path: [BACKGROUND_BING_DATE_FIELD], value: wallpaper.date },
+      { op: 'set', path: [BACKGROUND_BING_COPYRIGHT_FIELD], value: wallpaper.copyright },
+    ]
+    await this.host.mutate(ops)
+    this.settings = {
+      ...this.settings,
+      imagePath: path,
+      preset: BACKGROUND_PRESET_BING,
+      bingTitle: wallpaper.title,
+      bingDate: wallpaper.date,
+      bingCopyright: wallpaper.copyright,
+    }
+    this.publish()
+  }
+
+  /**
+   * 设置必应壁纸地区（决定壁纸池与标题语言；下一次取图生效）。
+   * @param value - BING_MARKETS 白名单之一。
+   * @throws 不在白名单内的地区值。
+   */
+  setBingMarket(value: string): void {
+    if (!(BING_MARKETS as readonly string[]).includes(value)) {
+      throw new Error(`background bing market "${value}" is not supported`)
+    }
+    if (this.settings.bingMarket === value) return
+    this.settings = { ...this.settings, bingMarket: value }
+    this.schedulePersist(BACKGROUND_BING_MARKET_FIELD, value)
+    this.publish()
+  }
+
+  /**
+   * 设置必应壁纸是否取 4K 原图（切换后两种规格各留一份缓存，互不覆盖）。
+   * @param enabled - true 取 UHD，false 取接口给出的 1920×1080。
+   * @throws 非布尔值。
+   */
+  setBingUhd(enabled: boolean): void {
+    if (typeof enabled !== 'boolean') {
+      throw new Error(`background bing uhd expects a boolean, received ${typeof enabled}`)
+    }
+    if (this.settings.bingUhd === enabled) return
+    this.settings = { ...this.settings, bingUhd: enabled }
+    this.schedulePersist(BACKGROUND_BING_UHD_FIELD, enabled)
+    this.publish()
+  }
+
+  /**
+   * 设置是否在进入界面时自动对齐「今日」壁纸。
+   * @param enabled - true 开启（命中缓存则零下载）。
+   * @throws 非布尔值。
+   */
+  setBingAutoRefresh(enabled: boolean): void {
+    if (typeof enabled !== 'boolean') {
+      throw new Error(`background bing auto refresh expects a boolean, received ${typeof enabled}`)
+    }
+    if (this.settings.bingAutoRefresh === enabled) return
+    this.settings = { ...this.settings, bingAutoRefresh: enabled }
+    this.schedulePersist(BACKGROUND_BING_AUTO_REFRESH_FIELD, enabled)
     this.publish()
   }
 

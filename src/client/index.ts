@@ -20,7 +20,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only：拉取 ui-layout 声明的 SlotMap（'sidebar'|'main'|'rightbar'|'shell.overlay'）。
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import { BACKGROUND_PRESET_NONE, BACKGROUND_SETTINGS_NAMESPACE, type BackgroundFill, type BackgroundSettings } from '../background-settings.ts'
+import { BACKGROUND_PRESET_BING, BACKGROUND_PRESET_NONE, BACKGROUND_SETTINGS_NAMESPACE, type BackgroundFill, type BackgroundSettings } from '../background-settings.ts'
 import { BackgroundPresenter } from './background-presenter.ts'
 import { BackgroundEffects } from './effects-renderer.ts'
 import { BackgroundRuntime } from './background-runtime.ts'
@@ -28,9 +28,11 @@ import { createBackgroundStore } from './background-store.ts'
 import { installBackgroundStyles } from './styles.ts'
 import { nextPresetId } from './presets.ts'
 import { uploadBackgroundImage } from './upload.ts'
+import { requestBingWallpaper } from './bing.ts'
 import { en, zh, type BackgroundLocaleKey } from './locales.ts'
 import { BackgroundRow, type BackgroundRowInjected, type UploadedBackground } from './BackgroundRow.tsx'
 import { BackgroundQuickToggle, type BackgroundQuickToggleInjected } from './BackgroundQuickToggle.tsx'
+import type { BingFetchMode } from './BingControls.tsx'
 
 export type { BackgroundRowComponentProps, BackgroundRowInjected } from './BackgroundRow.tsx'
 export type { BackgroundQuickToggleComponentProps, BackgroundQuickToggleInjected } from './BackgroundQuickToggle.tsx'
@@ -63,7 +65,30 @@ export function apply(ctx: ClientContext): void {
   const presenter = new BackgroundPresenter()
   const effects = new BackgroundEffects()
   const runtime = new BackgroundRuntime(host, presenter, effects)
-  ctx.effect(() => host.subscribe(() => { runtime.adopt() }), 'dsh-ui-background: settings adoption')
+
+  /**
+   * 取一张必应壁纸并应用：设置里的地区/4K 是唯一来源（组件不重复传参），
+   * 先持久化再发布由 runtime.setBing 保证。失败向上抛，由调用方决定提示方式。
+   * @param mode - latest 今日 / random 换一张。
+   */
+  const applyBingWallpaper = async (mode: BingFetchMode): Promise<void> => {
+    const current = runtime.getSnapshot().settings
+    const wallpaper = await requestBingWallpaper({ mode, market: current.bingMarket, uhd: current.bingUhd })
+    await runtime.setBing(wallpaper)
+  }
+
+  // 启动对齐「今日」壁纸：设置可能在本插件激活后才从 host 就绪，故在订阅回调里
+  // 做一次性检查；命中缓存即零下载，失败静默保留当前背景（用户可手动换一张）。
+  let bingRefreshChecked = false
+  const maybeAutoRefreshBing = (): void => {
+    if (bingRefreshChecked) return
+    const current = runtime.getSnapshot().settings
+    if (current.preset !== BACKGROUND_PRESET_BING || !current.bingAutoRefresh) return
+    bingRefreshChecked = true
+    void applyBingWallpaper('latest').catch(() => { /* 静默降级：不打断界面 */ })
+  }
+
+  ctx.effect(() => host.subscribe(() => { runtime.adopt(); maybeAutoRefreshBing() }), 'dsh-ui-background: settings adoption')
   // 卸载时冲刷防抖中的持久化写，并随插件释放特效渲染器（取消动画帧、移除画布）。
   ctx.effect(() => () => {
     runtime.dispose()
@@ -81,6 +106,8 @@ export function apply(ctx: ClientContext): void {
   }
   ctx.effect(() => runtime.subscribe(sync), 'dsh-ui-background: store sync')
   sync()
+  // 首帧后立即做一次自动更新检查（订阅回调只在后续变更时触发，覆盖不到启动态）。
+  maybeAutoRefreshBing()
 
   // 设置行：inject 工厂返回纯回调（写操作全部落到 runtime）。
   const rowInjected = (actions: BoundActions<typeof store>): BackgroundRowInjected => {
@@ -94,6 +121,10 @@ export function apply(ctx: ClientContext): void {
       setFill: (fill) => { runtime.setFill(fill) },
       setStreaks: (enabled) => { runtime.setStreaks(enabled) },
       setParticles: (enabled) => { runtime.setParticles(enabled) },
+      applyBing: (mode) => applyBingWallpaper(mode),
+      setBingMarket: (market) => { runtime.setBingMarket(market) },
+      setBingUhd: (enabled) => { runtime.setBingUhd(enabled) },
+      setBingAutoRefresh: (enabled) => { runtime.setBingAutoRefresh(enabled) },
       clear: () => {
         // 复合清除：预设回 none、图片清空（图片持久化为异步，fire-and-forget）。
         runtime.setPreset(BACKGROUND_PRESET_NONE)

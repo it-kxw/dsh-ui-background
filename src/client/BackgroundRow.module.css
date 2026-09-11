@@ -183,3 +183,39 @@
   line-height: 18px;
   color: var(--dsw-alias-state-warn-primary);
 }
+
+/* 必应壁纸区：一行控件（取图按钮 + 地区下拉 + 两个开关），窄屏换行。 */
+.bingRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 地区下拉：与 pill 同尺寸的轻量原生控件（避免引入自定义弹层）。 */
+.select {
+  padding: 3px 8px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+}
+
+/* 复选开关：文案走次要色，勾选框用品牌强调色。 */
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.checkbox input {
+  accent-color: var(--dsw-alias-brand-primary);
+}

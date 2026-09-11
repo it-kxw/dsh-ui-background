@@ -278,6 +278,56 @@ describe('BackgroundRuntime adopt 吸收', () => {
   })
 })
 
+describe('BackgroundRuntime 必应壁纸写操作', () => {
+  it('setBing 走一次原子 mutate（同一 revision）先持久化再发布；空路径不写入', async () => {
+    const { runtime, host, apply, snapshots } = make()
+    const pending = runtime.setBing({ path: '  C:/dsh/bing/a.jpg  ', title: '标题', date: '2026-09-10', copyright: '© A' })
+    // 先持久化：await 未落定前不发布，asset 路由首帧即拿到有效授权。
+    expect(host.mutate).toHaveBeenCalledWith([
+      { op: 'set', path: ['imagePath'], value: 'C:/dsh/bing/a.jpg' },
+      { op: 'set', path: ['preset'], value: 'bing' },
+      { op: 'set', path: ['bingTitle'], value: '标题' },
+      { op: 'set', path: ['bingDate'], value: '2026-09-10' },
+      { op: 'set', path: ['bingCopyright'], value: '© A' },
+    ])
+    expect(snapshots).toHaveLength(0)
+    await pending
+    expect(runtime.getSnapshot().settings).toMatchObject({
+      preset: 'bing', imagePath: 'C:/dsh/bing/a.jpg', bingTitle: '标题', bingDate: '2026-09-10',
+    })
+    expect(apply).toHaveBeenCalledTimes(1)
+    await expect(runtime.setBing({ path: '   ', title: '', date: '', copyright: '' })).rejects.toThrow('empty')
+    // 空路径直接判失败：不再产生第二次持久化。
+    expect(host.mutate).toHaveBeenCalledTimes(1)
+    expect(snapshots).toHaveLength(1)
+  })
+
+  it('setBingMarket/setBingUhd/setBingAutoRefresh：校验、防抖持久化、同值无操作', () => {
+    const { runtime, host, snapshots } = make()
+    runtime.setBingMarket('en-US')
+    runtime.setBingUhd(false)
+    runtime.setBingAutoRefresh(false)
+    expect(host.set).not.toHaveBeenCalled()
+    advancePersist()
+    expect(host.set).toHaveBeenCalledWith('bingMarket', 'en-US')
+    expect(host.set).toHaveBeenCalledWith('bingUhd', false)
+    expect(host.set).toHaveBeenCalledWith('bingAutoRefresh', false)
+    expect(snapshots).toHaveLength(3)
+    // 同值写为无操作。
+    runtime.setBingMarket('en-US')
+    runtime.setBingUhd(false)
+    runtime.setBingAutoRefresh(false)
+    advancePersist()
+    expect(host.set).toHaveBeenCalledTimes(3)
+    expect(snapshots).toHaveLength(3)
+    // 外部输入校验：地区走白名单，开关拒绝非布尔。
+    expect(() => runtime.setBingMarket('xx-YY')).toThrow('not supported')
+    expect(() => runtime.setBingUhd('yes' as never)).toThrow('boolean')
+    expect(() => runtime.setBingAutoRefresh(1 as never)).toThrow('boolean')
+    expect(host.set).toHaveBeenCalledTimes(3)
+  })
+})
+
 describe('BackgroundRuntime 快照与订阅', () => {
   it('无变化时 getSnapshot 引用稳定；发布后更新', () => {
     const { runtime } = make()

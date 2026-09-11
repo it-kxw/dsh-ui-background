@@ -27,6 +27,7 @@ import { formatAspect } from './suggest-fill.ts'
 import type { BackgroundLocaleKey } from './locales.ts'
 import type { createBackgroundStore } from './background-store.ts'
 import { readImageSize } from './upload.ts'
+import { BingControls, type BingFetchMode } from './BingControls.tsx'
 import css from './BackgroundRow.module.css'
 
 /** 填充方式 → 文案 key 的显式映射（t 需要字面量键，不能用模板拼接）。 */
@@ -48,7 +49,7 @@ export interface UploadedBackground {
   fill: BackgroundFill
 }
 
-/** 注入的业务面：四个写操作 + 清除 + 上传 + 两个特效开关。 */
+/** 注入的业务面：四个写操作 + 清除 + 上传 + 两个特效开关 + 必应壁纸四操作。 */
 export interface BackgroundRowInjected {
   /** 切换预设（'none' 或内置预设 id）。 */
   setPreset: (id: string) => void
@@ -66,6 +67,14 @@ export interface BackgroundRowInjected {
   setStreaks: (enabled: boolean) => void
   /** 切换粒子特效。 */
   setParticles: (enabled: boolean) => void
+  /** 取一张必应壁纸并应用（latest 今日 / random 换一张）；失败抛出。 */
+  applyBing: (mode: BingFetchMode) => Promise<void>
+  /** 设置必应壁纸地区。 */
+  setBingMarket: (market: string) => void
+  /** 设置必应壁纸是否取 4K。 */
+  setBingUhd: (enabled: boolean) => void
+  /** 设置必应壁纸是否每日自动更新。 */
+  setBingAutoRefresh: (enabled: boolean) => void
 }
 
 /** 完整组件 props：运行时分享 + store 分享 + locale 座位 + 注入面。 */
@@ -91,7 +100,7 @@ function readViewport(): { width: number; height: number } {
  * @returns 设置行元素树。
  */
 export function BackgroundRow(
-  { t, useStore, setPreset, setOpacity, setBlur, setFill, clear, uploadImage, setStreaks, setParticles }: BackgroundRowProps,
+  { t, useStore, setPreset, setOpacity, setBlur, setFill, clear, uploadImage, setStreaks, setParticles, applyBing, setBingMarket, setBingUhd, setBingAutoRefresh }: BackgroundRowProps,
 ) {
   const settings = useStore(state => state.settings)
   // 激活判定与呈现器一致：可解析出背景值（none / 未知预设 / custom 缺图均为假）。
@@ -193,6 +202,14 @@ export function BackgroundRow(
           {t('row.uploadError')}
         </div>
       )}
+      <BingControls
+        t={t}
+        settings={settings}
+        applyBing={applyBing}
+        setBingMarket={setBingMarket}
+        setBingUhd={setBingUhd}
+        setBingAutoRefresh={setBingAutoRefresh}
+      />
       <div className={css.controlRow}>
         <label className={css.controlLabel} htmlFor="background-opacity">{t('row.opacity')}</label>
         <input
