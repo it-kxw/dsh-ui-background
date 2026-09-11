@@ -39,6 +39,30 @@ export interface BackgroundValues {
 }
 
 /**
+ * 本次生效设置对应的变量全集。
+ *
+ * 返回 Map 是为了与上一次写入的值逐项比对：拖动不透明度/模糊滑块时每帧都会
+ * apply，而真正变化的只有一个变量（见 writeVariables 的差异写入）。
+ * @param values - 解析后的双配色背景值。
+ * @param settings - 生效设置。
+ * @returns 变量名 → 值。
+ */
+function desiredVariables(
+  values: BackgroundValues,
+  settings: Readonly<BackgroundSettings>,
+): Map<string, string> {
+  return new Map<string, string>([
+    ['--dsh-bg-image-light', values.light],
+    ['--dsh-bg-image-dark', values.dark],
+    ['--dsh-bg-opacity', String(settings.opacity)],
+    ['--dsh-bg-blur', `${settings.blur}px`],
+    // tile 用原始尺寸平铺；cover/contain 直接作为 background-size 保留字。
+    ['--dsh-bg-size', settings.fill === 'tile' ? 'auto' : settings.fill],
+    ['--dsh-bg-repeat', settings.fill === 'tile' ? 'repeat' : 'no-repeat'],
+  ])
+}
+
+/**
  * 从生效设置解析背景值；无背景（'none'、未知预设、图片来源型预设缺图片）返回 null。
  * 模块级纯函数便于单独测试。
  * @param settings - 生效的背景设置。
@@ -66,8 +90,14 @@ export type BackgroundLayerElement = HTMLDivElement
 export class BackgroundPresenter {
   /** 已挂载的背景层；undefined 表示尚未创建或非浏览器环境。 */
   private layer: BackgroundLayerElement | undefined
-  /** 上一次写入层的变量名（重写前先撤回）。 */
-  private applied: readonly string[] = []
+  /**
+   * 上一次写入层的「变量名 → 值」。
+   *
+   * 保留值而不只是变量名，是为了做差异写入：拖动不透明度/模糊滑块时每个输入
+   * 事件都会 apply，旧实现"先撤 6 个再写 6 个"会让整层样式失效两轮（每次写入
+   * 都触发全屏背景的样式重算），而实际变化的只有一个变量。
+   */
+  private appliedValues = new Map<string, string>()
 
   /**
    * 应用一份设置到 DOM：激活时建层+写变量，非激活时撤回全部痕迹。
@@ -84,18 +114,7 @@ export class BackgroundPresenter {
     document.body.setAttribute(BG_ACTIVE_ATTRIBUTE, '')
     const layer = this.ensureLayer()
     if (layer === undefined) return
-    this.clearLayer()
-    const entries: readonly (readonly [string, string])[] = [
-      ['--dsh-bg-image-light', values.light],
-      ['--dsh-bg-image-dark', values.dark],
-      ['--dsh-bg-opacity', String(settings.opacity)],
-      ['--dsh-bg-blur', `${settings.blur}px`],
-      // tile 用原始尺寸平铺；cover/contain 直接作为 background-size 保留字。
-      ['--dsh-bg-size', settings.fill === 'tile' ? 'auto' : settings.fill],
-      ['--dsh-bg-repeat', settings.fill === 'tile' ? 'repeat' : 'no-repeat'],
-    ]
-    for (const [name, value] of entries) layer.style.setProperty(name, value)
-    this.applied = entries.map(([name]) => name)
+    this.writeVariables(layer, desiredVariables(values, settings))
   }
 
   /**
@@ -108,7 +127,26 @@ export class BackgroundPresenter {
       this.layer.remove()
       this.layer = undefined
     }
-    this.applied = []
+    this.appliedValues.clear()
+  }
+
+  /**
+   * 差异写入：只写值变了的变量，并撤掉本次不再需要的变量（撤回上一次的痕迹）。
+   * @param layer - 背景层元素。
+   * @param next - 本次应生效的变量全集。
+   */
+  private writeVariables(layer: BackgroundLayerElement, next: Map<string, string>): void {
+    for (const [name, value] of next) {
+      if (this.appliedValues.get(name) === value) continue
+      layer.style.setProperty(name, value)
+      this.appliedValues.set(name, value)
+    }
+    // 上次写过、这次不需要的变量（如从自定义图片切回内置预设）必须撤掉。
+    for (const name of [...this.appliedValues.keys()]) {
+      if (next.has(name)) continue
+      layer.style.removeProperty(name)
+      this.appliedValues.delete(name)
+    }
   }
 
   /** 找到已挂载的背景层，否则创建并追加到 body。 */
@@ -128,10 +166,11 @@ export class BackgroundPresenter {
     return this.layer
   }
 
-  /** 撤回层上的内联变量；层不存在时（非浏览器）为无操作。 */
+  /** 撤回层上的全部内联变量；层不存在时（非浏览器）为无操作。 */
   private clearLayer(): void {
-    if (this.layer === undefined) return
-    for (const name of this.applied) this.layer.style.removeProperty(name)
-    this.applied = []
+    if (this.layer !== undefined) {
+      for (const name of this.appliedValues.keys()) this.layer.style.removeProperty(name)
+    }
+    this.appliedValues.clear()
   }
 }

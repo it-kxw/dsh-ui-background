@@ -32,15 +32,18 @@ export type BackgroundQuickToggleProps =
 /**
  * 当前背景的显示名：custom（有图）→ 「自定义图片」；命中预设 → 预设名；
  * 否则（none / 未知预设置）→ 「无」。
- * @param settings - 当前生效设置。
+ * @param view - 只含判定所需字段的设置视图（避免传整份设置）。
  * @param t - namespace 翻译函数。
  * @returns 展示名。
  */
-function backgroundName(settings: Readonly<BackgroundSettings>, t: (key: BackgroundLocaleKey) => string): string {
-  if (isCustomPreset(settings.preset)) {
-    return settings.imagePath === '' ? t('preset.none') : t('row.customImage')
+function backgroundName(
+  view: { preset: string; imagePath: string },
+  t: (key: BackgroundLocaleKey) => string,
+): string {
+  if (isCustomPreset(view.preset)) {
+    return view.imagePath === '' ? t('preset.none') : t('row.customImage')
   }
-  const preset = presetById(settings.preset)
+  const preset = presetById(view.preset)
   return preset === undefined ? t('preset.none') : t(preset.labelKey)
 }
 
@@ -50,8 +53,11 @@ function backgroundName(settings: Readonly<BackgroundSettings>, t: (key: Backgro
  * @returns 按钮元素。
  */
 export function BackgroundQuickToggle({ t, useStore, next }: BackgroundQuickToggleProps) {
-  const settings = useStore(state => state.settings)
-  const name = backgroundName(settings, t)
+  // 逐字段订阅：拖动设置行里的滑块时本按钮不必重渲染（每次 publish 都会冻结出
+  // 新的 settings 对象，整对象订阅会被无谓唤醒）。
+  const preset = useStore(state => state.settings.preset)
+  const imagePath = useStore(state => state.settings.imagePath)
+  const name = backgroundName({ preset, imagePath }, t)
   return (
     <button
       type="button"

@@ -13,7 +13,7 @@
 import { useState } from 'react'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import {
-  BACKGROUND_PRESET_BING, BING_MARKETS, type BackgroundSettings,
+  BACKGROUND_PRESET_BING, BING_MARKETS,
 } from '../background-settings.ts'
 import css from './BackgroundRow.module.css'
 
@@ -23,12 +23,35 @@ export type BackgroundTranslate = PropsLocale<'settings.background'>['t']
 /** 一次取图的模式。 */
 export type BingFetchMode = 'latest' | 'random'
 
-/** 区块 props：设置快照 + 四个写操作（全部由 apply 注入，组件零 ctx）。 */
+/**
+ * 本区块真正需要读取的设置子集。
+ *
+ * 刻意不收整份 BackgroundSettings：整对象订阅会让本区块在不相关字段（不透明度、
+ * 模糊）变化时跟着重渲染，拖动滑块时白白付出渲染成本。
+ */
+export interface BingSettingsView {
+  /** 当前预设 id（判断是否正在显示必应壁纸）。 */
+  preset: string
+  /** 当前图片路径（判断是否已有缓存图）。 */
+  imagePath: string
+  /** 地区。 */
+  bingMarket: string
+  /** 是否取 4K。 */
+  bingUhd: boolean
+  /** 是否每日自动更新。 */
+  bingAutoRefresh: boolean
+  /** 展示用标题。 */
+  bingTitle: string
+  /** 展示用日期。 */
+  bingDate: string
+}
+
+/** 区块 props：设置子集 + 四个写操作（全部由 apply 注入，组件零 ctx）。 */
 export interface BingControlsProps {
   /** 文案函数。 */
   t: BackgroundTranslate
-  /** 当前生效设置。 */
-  settings: Readonly<BackgroundSettings>
+  /** 本区块需要的设置子集。 */
+  settings: BingSettingsView
   /** 取一张必应壁纸并应用；失败抛出，由本组件转为提示。 */
   applyBing: (mode: BingFetchMode) => Promise<void>
   /** 设置地区。 */
@@ -123,14 +146,14 @@ export function BingControls({ t, settings, applyBing, setBingMarket, setBingUhd
 }
 
 /** 当前是否正在显示必应壁纸（preset 与缓存路径同时就绪才算）。 */
-function isBingActive(settings: Readonly<BackgroundSettings>): boolean {
+function isBingActive(settings: BingSettingsView): boolean {
   return settings.preset === BACKGROUND_PRESET_BING && settings.imagePath !== ''
 }
 
 /** 选项组 props（纯展示 + 回调，状态仍归 BingControls）。 */
 interface BingOptionsProps {
   t: BackgroundTranslate
-  settings: Readonly<BackgroundSettings>
+  settings: BingSettingsView
   onMarket: (market: string) => void
   onUhd: (enabled: boolean) => void
   onAutoRefresh: (enabled: boolean) => void

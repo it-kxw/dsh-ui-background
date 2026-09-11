@@ -16,18 +16,19 @@ import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-cli
 // Type-only：拉取 SettingsScope Context merge（契约一致）。
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import {
-  backgroundAssetUrl,
+  backgroundAssetUrl, DEFAULT_BACKGROUND_SETTINGS,
   BACKGROUND_BLUR_MAX, BACKGROUND_BLUR_MIN, BACKGROUND_BLUR_STEP,
   BACKGROUND_FILLS, BACKGROUND_OPACITY_MAX, BACKGROUND_OPACITY_MIN,
   BACKGROUND_OPACITY_STEP, BACKGROUND_PRESET_NONE, type BackgroundFill,
+  type BackgroundSettings,
 } from '../background-settings.ts'
 import { BACKGROUND_PRESETS, isCustomPreset } from './presets.ts'
 import { backgroundValues } from './background-presenter.ts'
 import { formatAspect } from './suggest-fill.ts'
 import type { BackgroundLocaleKey } from './locales.ts'
-import type { createBackgroundStore } from './background-store.ts'
+import type { BackgroundState, createBackgroundStore } from './background-store.ts'
 import { readImageSize } from './upload.ts'
-import { BingControls, type BingFetchMode } from './BingControls.tsx'
+import { BingControls, type BackgroundTranslate, type BingFetchMode } from './BingControls.tsx'
 import css from './BackgroundRow.module.css'
 
 /** 填充方式 → 文案 key 的显式映射（t 需要字面量键，不能用模板拼接）。 */
@@ -95,6 +96,142 @@ function readViewport(): { width: number; height: number } {
 }
 
 /**
+ * 生成「设置快照 → 单个字段」的订阅选择器。
+ *
+ * 为什么不用 `useStore(state => state.settings)`：每次 publish 都会冻结出一个
+ * 新的 settings 对象，整对象订阅会让本行在**任何**字段变化时重渲染——拖动
+ * 不透明度/模糊滑块时每帧都会重渲染预设卡片、必应区块与全部胶囊，滑块的拇指
+ * 因此跟手迟滞。逐字段订阅后，拖动只重渲染对应的一小行。
+ * @param field - 需要订阅的字段名。
+ * @returns 供 useStore 使用的选择器。
+ */
+function selectField<K extends keyof BackgroundSettings>(field: K) {
+  return (state: BackgroundState): BackgroundSettings[K] => state.settings[field]
+}
+
+/**
+ * 数值滑块行（不透明度 / 模糊）。
+ *
+ * 拖动期间用本地态驱动 input 的 value：拇指跟随指针不需要等待
+ * 「运行时发布 → store 同步 → React 渲染」这条链路，手感与原生滑块一致；
+ * 同时照常把每次变化写回运行时（持久化仍有 200ms 尾沿防抖）。
+ * 外部值变化（采纳磁盘设置、清除背景）会回填本地态，拖动中不被覆盖。
+ *
+ * @param props - 见 SliderFieldProps。
+ * @returns 一行「标签 + 滑块 + 读数」。
+ */
+function SliderField(
+  { id, label, value, min, max, step, formatText, onChange }: SliderFieldProps,
+): React.ReactElement {
+  const [draft, setDraft] = useState(value)
+  useEffect(() => {
+    // 外部值变化（采纳磁盘设置、程序化重置）时回填本地态。拖动期间 store 里的
+    // 值与本地点同步推进，这次回填是等值写入，React 会直接跳过重渲染。
+    setDraft(current => (current === value ? current : value))
+  }, [value])
+
+  return (
+    <div className={css.controlRow}>
+      <label className={css.controlLabel} htmlFor={id}>{label}</label>
+      <div className={css.controlBody}>
+        <input
+          id={id}
+          className={css.slider}
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={draft}
+          // 读屏读「100%」「8px」而不是裸数字。
+          aria-valuetext={formatText(draft)}
+          onChange={(event) => {
+            const next = Number(event.target.value)
+            setDraft(next)
+            onChange(next)
+          }}
+        />
+        <span className={css.controlValue}>{formatText(draft)}</span>
+      </div>
+    </div>
+  )
+}
+
+/** 数值滑块行的 props。 */
+interface SliderFieldProps {
+  /** input 的 id（与 label 的 htmlFor 配对）。 */
+  id: string
+  /** 可见标签文本。 */
+  label: string
+  /** 当前生效值。 */
+  value: number
+  /** 最小值。 */
+  min: number
+  /** 最大值。 */
+  max: number
+  /** 步进。 */
+  step: number
+  /** 读数与 aria-valuetext 的格式化。 */
+  formatText: (value: number) => string
+  /** 值变化回调（写回运行时）。 */
+  onChange: (value: number) => void
+}
+
+/** 单个滑块包装组件的公用 props（自行订阅所需字段）。 */
+interface FieldSliderProps {
+  /** 文案函数。 */
+  t: BackgroundTranslate
+  /** slot store 的订阅钩子。 */
+  useStore: BackgroundRowProps['useStore']
+  /** 值变化回调。 */
+  onChange: (value: number) => void
+}
+
+/**
+ * 不透明度滑块：只订阅 opacity。
+ *
+ * 单独成组件而不是内联在整行里，是为了把重渲染范围压到这一行——拖动
+ * 不透明度时预设卡片、必应区块与全部胶囊都不会重渲染。
+ * @param props - 见 FieldSliderProps。
+ * @returns 不透明度滑块行。
+ */
+function OpacitySlider({ t, useStore, onChange }: FieldSliderProps): React.ReactElement {
+  const value = useStore(selectField('opacity'))
+  return (
+    <SliderField
+      id="background-opacity"
+      label={t('row.opacity')}
+      value={value}
+      min={BACKGROUND_OPACITY_MIN}
+      max={BACKGROUND_OPACITY_MAX}
+      step={BACKGROUND_OPACITY_STEP}
+      formatText={percentText}
+      onChange={onChange}
+    />
+  )
+}
+
+/**
+ * 模糊滑块：只订阅 blur。
+ * @param props - 见 FieldSliderProps。
+ * @returns 模糊滑块行。
+ */
+function BlurSlider({ t, useStore, onChange }: FieldSliderProps): React.ReactElement {
+  const value = useStore(selectField('blur'))
+  return (
+    <SliderField
+      id="background-blur"
+      label={t('row.blur')}
+      value={value}
+      min={BACKGROUND_BLUR_MIN}
+      max={BACKGROUND_BLUR_MAX}
+      step={BACKGROUND_BLUR_STEP}
+      formatText={blur => `${blur}px`}
+      onChange={onChange}
+    />
+  )
+}
+
+/**
  * 渲染背景设置行。
  * @param props - 组合后的 slot props。
  * @returns 设置行元素树。
@@ -102,10 +239,21 @@ function readViewport(): { width: number; height: number } {
 export function BackgroundRow(
   { t, useStore, setPreset, setOpacity, setBlur, setFill, clear, uploadImage, setStreaks, setParticles, applyBing, setBingMarket, setBingUhd, setBingAutoRefresh }: BackgroundRowProps,
 ) {
-  const settings = useStore(state => state.settings)
-  // 激活判定与呈现器一致：可解析出背景值（none / 未知预设 / custom 缺图均为假）。
-  const active = backgroundValues(settings) !== null
-  const customActive = isCustomPreset(settings.preset) && settings.imagePath !== ''
+  // 逐字段订阅：拖动滑块不会让整行重渲染（见 selectField 的说明）。
+  const preset = useStore(selectField('preset'))
+  const imagePath = useStore(selectField('imagePath'))
+  const fill = useStore(selectField('fill'))
+  const streaks = useStore(selectField('streaks'))
+  const particles = useStore(selectField('particles'))
+  const bingMarket = useStore(selectField('bingMarket'))
+  const bingUhd = useStore(selectField('bingUhd'))
+  const bingAutoRefresh = useStore(selectField('bingAutoRefresh'))
+  const bingTitle = useStore(selectField('bingTitle'))
+  const bingDate = useStore(selectField('bingDate'))
+
+  // 激活判定与呈现器一致：可解析出背景值（none / 未知预设 / 图片来源型缺图均为假）。
+  const active = backgroundValues({ ...DEFAULT_BACKGROUND_SETTINGS, preset, imagePath }) !== null
+  const customActive = isCustomPreset(preset) && imagePath !== ''
 
   // 上传流程状态。
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -120,11 +268,11 @@ export function BackgroundRow(
       return
     }
     let cancelled = false
-    void readImageSize(backgroundAssetUrl(settings.imagePath)).then((size) => {
+    void readImageSize(backgroundAssetUrl(imagePath)).then((size) => {
       if (!cancelled && size.width > 0) setDims(size)
     })
     return () => { cancelled = true }
-  }, [customActive, settings.imagePath])
+  }, [customActive, imagePath])
 
   const [viewport] = useState(readViewport)
 
@@ -157,23 +305,23 @@ export function BackgroundRow(
         <div className={css.presetRow}>
           <button
             type="button"
-            className={clsx(css.presetCard, settings.preset === BACKGROUND_PRESET_NONE && css.selected)}
-            aria-pressed={settings.preset === BACKGROUND_PRESET_NONE}
+            className={clsx(css.presetCard, preset === BACKGROUND_PRESET_NONE && css.selected)}
+            aria-pressed={preset === BACKGROUND_PRESET_NONE}
             onClick={() => { setPreset(BACKGROUND_PRESET_NONE) }}
           >
             <div className={css.preview} />
             {t('preset.none')}
           </button>
-          {BACKGROUND_PRESETS.map(preset => (
+          {BACKGROUND_PRESETS.map(item => (
             <button
-              key={preset.id}
+              key={item.id}
               type="button"
-              className={clsx(css.presetCard, settings.preset === preset.id && css.selected)}
-              aria-pressed={settings.preset === preset.id}
-              onClick={() => { setPreset(preset.id) }}
+              className={clsx(css.presetCard, preset === item.id && css.selected)}
+              aria-pressed={preset === item.id}
+              onClick={() => { setPreset(item.id) }}
             >
-              <div className={css.preview} style={{ backgroundImage: preset.light }} />
-              {t(preset.labelKey)}
+              <div className={css.preview} style={{ backgroundImage: item.light }} />
+              {t(item.labelKey)}
             </button>
           ))}
         </div>
@@ -210,7 +358,7 @@ export function BackgroundRow(
         )}
         <BingControls
           t={t}
-          settings={settings}
+          settings={{ preset, imagePath, bingMarket, bingUhd, bingAutoRefresh, bingTitle, bingDate }}
           applyBing={applyBing}
           setBingMarket={setBingMarket}
           setBingUhd={setBingUhd}
@@ -221,53 +369,21 @@ export function BackgroundRow(
       {/* 显示组：三行共用「72px 标签 + 内容」网格，窄屏时内容列内换行。 */}
       <div className={css.cluster} role="group" aria-labelledby="background-display-label">
         <div className={css.subLabel} id="background-display-label">{t('row.group.display')}</div>
-        <div className={css.controlRow}>
-          <label className={css.controlLabel} htmlFor="background-opacity">{t('row.opacity')}</label>
-          <div className={css.controlBody}>
-            <input
-              id="background-opacity"
-              className={css.slider}
-              type="range"
-              min={BACKGROUND_OPACITY_MIN}
-              max={BACKGROUND_OPACITY_MAX}
-              step={BACKGROUND_OPACITY_STEP}
-              value={settings.opacity}
-              // 读屏读「100%」而不是裸数字「1」。
-              aria-valuetext={percentText(settings.opacity)}
-              onChange={(event) => { setOpacity(Number(event.target.value)) }}
-            />
-            <span className={css.controlValue}>{percentText(settings.opacity)}</span>
-          </div>
-        </div>
-        <div className={css.controlRow}>
-          <label className={css.controlLabel} htmlFor="background-blur">{t('row.blur')}</label>
-          <div className={css.controlBody}>
-            <input
-              id="background-blur"
-              className={css.slider}
-              type="range"
-              min={BACKGROUND_BLUR_MIN}
-              max={BACKGROUND_BLUR_MAX}
-              step={BACKGROUND_BLUR_STEP}
-              value={settings.blur}
-              aria-valuetext={`${settings.blur}px`}
-              onChange={(event) => { setBlur(Number(event.target.value)) }}
-            />
-            <span className={css.controlValue}>{settings.blur}px</span>
-          </div>
-        </div>
+        {/* 两个滑块各自订阅自己的值：拖动只重渲染对应的一行。 */}
+        <OpacitySlider t={t} useStore={useStore} onChange={setOpacity} />
+        <BlurSlider t={t} useStore={useStore} onChange={setBlur} />
         <div className={css.controlRow}>
           <span className={css.controlLabel} id="background-fill-label">{t('row.fill')}</span>
           <div className={css.controlBody} role="group" aria-labelledby="background-fill-label">
-            {BACKGROUND_FILLS.map(fill => (
+            {BACKGROUND_FILLS.map(item => (
               <button
-                key={fill}
+                key={item}
                 type="button"
-                className={clsx(css.pill, settings.fill === fill && css.selected)}
-                aria-pressed={settings.fill === fill}
-                onClick={() => { setFill(fill) }}
+                className={clsx(css.pill, fill === item && css.selected)}
+                aria-pressed={fill === item}
+                onClick={() => { setFill(item) }}
               >
-                {t(FILL_LABEL_KEY[fill])}
+                {t(FILL_LABEL_KEY[item])}
               </button>
             ))}
           </div>
@@ -280,24 +396,24 @@ export function BackgroundRow(
         <div className={css.controlBody}>
           <button
             type="button"
-            className={clsx(css.pill, !settings.streaks && !settings.particles && css.selected)}
-            aria-pressed={!settings.streaks && !settings.particles}
+            className={clsx(css.pill, !streaks && !particles && css.selected)}
+            aria-pressed={!streaks && !particles}
             onClick={() => { setStreaks(false); setParticles(false) }}
           >
             {t('row.effect.off')}
           </button>
           <button
             type="button"
-            className={clsx(css.pill, settings.streaks && css.selected)}
-            aria-pressed={settings.streaks}
+            className={clsx(css.pill, streaks && css.selected)}
+            aria-pressed={streaks}
             onClick={() => { setStreaks(true) }}
           >
             {t('row.streaks')}
           </button>
           <button
             type="button"
-            className={clsx(css.pill, settings.particles && css.selected)}
-            aria-pressed={settings.particles}
+            className={clsx(css.pill, particles && css.selected)}
+            aria-pressed={particles}
             onClick={() => { setParticles(true) }}
           >
             {t('row.particles')}

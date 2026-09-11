@@ -43,6 +43,9 @@ body[data-ds-dark-theme][data-dsh-bg-active] {
   background-repeat: var(--dsh-bg-repeat, no-repeat);
   opacity: var(--dsh-bg-opacity, 1);
   filter: blur(var(--dsh-bg-blur, 0px));
+  /* 这两个变量会被滑块每帧改写：提前声明 will-change 让浏览器把整层提升为独立
+   * 合成层，改模糊半径/不透明度时不必连带重绘其余内容。 */
+  will-change: opacity, filter;
 }
 
 /* 深色配色下的深色底色与背景图。
