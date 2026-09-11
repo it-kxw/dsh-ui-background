@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { BackgroundSettingsSchema } from '../src/background-schema.ts'
-import { BACKGROUND_PRESET_NONE } from '../src/background-settings.ts'
+import { BACKGROUND_PRESET_NONE, DEFAULT_BING_MARKET } from '../src/background-settings.ts'
 
 /** 完整默认值快照（schema 对空对象解析的产物）。 */
 const DEFAULTS = {
@@ -17,6 +17,12 @@ const DEFAULTS = {
   imagePath: '',
   streaks: false,
   particles: false,
+  bingMarket: DEFAULT_BING_MARKET,
+  bingUhd: true,
+  bingAutoRefresh: true,
+  bingTitle: '',
+  bingDate: '',
+  bingCopyright: '',
 } as const
 
 describe('BackgroundSettingsSchema 默认值', () => {
@@ -67,5 +73,32 @@ describe('BackgroundSettingsSchema 边界校验', () => {
     expect(BackgroundSettingsSchema({ particles: true }).particles).toBe(true)
     expect(() => BackgroundSettingsSchema({ streaks: 'yes' })).toThrow()
     expect(() => BackgroundSettingsSchema({ particles: 1 })).toThrow()
+  })
+
+  it('必应壁纸字段：地区默认 zh-CN、4K 与自动更新默认开启、展示元数据默认空', () => {
+    const parsed = BackgroundSettingsSchema({})
+    expect(parsed.bingMarket).toBe(DEFAULT_BING_MARKET)
+    expect(parsed.bingUhd).toBe(true)
+    expect(parsed.bingAutoRefresh).toBe(true)
+    expect(parsed.bingTitle).toBe('')
+    expect(parsed.bingDate).toBe('')
+    expect(parsed.bingCopyright).toBe('')
+  })
+
+  it('必应壁纸字段：接受显式值、地区为自由字符串、拒绝非布尔开关', () => {
+    const parsed = BackgroundSettingsSchema({
+      bingMarket: 'en-US', bingUhd: false, bingAutoRefresh: false,
+      bingTitle: '地中海风情尽显', bingDate: '2026-09-10', bingCopyright: '© StockByM',
+    })
+    expect(parsed.bingMarket).toBe('en-US')
+    expect(parsed.bingUhd).toBe(false)
+    expect(parsed.bingAutoRefresh).toBe(false)
+    expect(parsed.bingTitle).toBe('地中海风情尽显')
+    expect(parsed.bingDate).toBe('2026-09-10')
+    expect(parsed.bingCopyright).toBe('© StockByM')
+    // 手改 yaml 写入非法地区不应让整份设置校验失败（取图时回退默认地区）。
+    expect(BackgroundSettingsSchema({ bingMarket: 'not-a-market' }).bingMarket).toBe('not-a-market')
+    expect(() => BackgroundSettingsSchema({ bingUhd: 'yes' })).toThrow()
+    expect(() => BackgroundSettingsSchema({ bingAutoRefresh: 1 })).toThrow()
   })
 })

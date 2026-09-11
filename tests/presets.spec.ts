@@ -4,9 +4,11 @@
  * @date 2026-09-10
  */
 import { describe, expect, it } from 'vitest'
-import { BACKGROUND_PRESET_CUSTOM, BACKGROUND_PRESET_NONE } from '../src/background-settings.ts'
 import {
-  BACKGROUND_PRESETS, BACKGROUND_PRESET_IDS, isCustomPreset, nextPresetId, presetById,
+  BACKGROUND_PRESET_BING, BACKGROUND_PRESET_CUSTOM, BACKGROUND_PRESET_NONE,
+} from '../src/background-settings.ts'
+import {
+  BACKGROUND_PRESETS, BACKGROUND_PRESET_IDS, isCustomPreset, isImagePreset, nextPresetId, presetById,
 } from '../src/client/presets.ts'
 import { zh } from '../src/client/locales.ts'
 
@@ -27,9 +29,12 @@ describe('BACKGROUND_PRESETS 预设表', () => {
     expect(BACKGROUND_PRESET_IDS).toEqual(BACKGROUND_PRESETS.map(preset => preset.id))
   })
 
-  it('none 与 custom 不在可点击的预设表内', () => {
+  it('none 与图片来源型预设（custom/bing）不在可点击的预设表内', () => {
     expect(BACKGROUND_PRESETS.some(preset => preset.id === BACKGROUND_PRESET_NONE)).toBe(false)
     expect(BACKGROUND_PRESET_IDS.includes(BACKGROUND_PRESET_CUSTOM)).toBe(false)
+    expect(BACKGROUND_PRESET_IDS.includes(BACKGROUND_PRESET_BING)).toBe(false)
+    // bing 不是静态预设：它没有双配色 CSS 值，只能由 imagePath 提供内容。
+    expect(presetById(BACKGROUND_PRESET_BING)).toBeUndefined()
   })
 })
 
@@ -61,8 +66,9 @@ describe('nextPresetId 循环', () => {
     expect(nextPresetId(last)).toBe(BACKGROUND_PRESET_NONE)
   })
 
-  it('custom 或未知值重置回 none（先关掉再选择）', () => {
+  it('custom/bing 或未知值重置回 none（先关掉再选择）', () => {
     expect(nextPresetId(BACKGROUND_PRESET_CUSTOM)).toBe(BACKGROUND_PRESET_NONE)
+    expect(nextPresetId(BACKGROUND_PRESET_BING)).toBe(BACKGROUND_PRESET_NONE)
     expect(nextPresetId('bogus')).toBe(BACKGROUND_PRESET_NONE)
   })
 
@@ -77,5 +83,15 @@ describe('isCustomPreset', () => {
     expect(isCustomPreset(BACKGROUND_PRESET_CUSTOM)).toBe(true)
     expect(isCustomPreset('aurora')).toBe(false)
     expect(isCustomPreset(BACKGROUND_PRESET_NONE)).toBe(false)
+  })
+})
+
+describe('isImagePreset', () => {
+  it('custom 与 bing 为图片来源型，其余（含 none/内置预设/未知值）为 false', () => {
+    expect(isImagePreset(BACKGROUND_PRESET_CUSTOM)).toBe(true)
+    expect(isImagePreset(BACKGROUND_PRESET_BING)).toBe(true)
+    expect(isImagePreset('aurora')).toBe(false)
+    expect(isImagePreset(BACKGROUND_PRESET_NONE)).toBe(false)
+    expect(isImagePreset('bogus')).toBe(false)
   })
 })

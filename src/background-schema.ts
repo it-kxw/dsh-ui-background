@@ -15,7 +15,8 @@ import z from '@deepseek-ai/schemastery'
 import {
   BACKGROUND_BLUR_MAX, BACKGROUND_BLUR_MIN, BACKGROUND_BLUR_STEP,
   BACKGROUND_FILLS, BACKGROUND_OPACITY_MAX, BACKGROUND_OPACITY_MIN,
-  BACKGROUND_OPACITY_STEP, BACKGROUND_PRESET_NONE, type BackgroundSettings,
+  BACKGROUND_OPACITY_STEP, BACKGROUND_PRESET_NONE, DEFAULT_BING_MARKET,
+  type BackgroundSettings,
 } from './background-settings.ts'
 
 /**
@@ -23,6 +24,8 @@ import {
  * - preset 用自由字符串而非枚举：允许预设表后续演进，未知值由运行时回退。
  * - imagePath 默认空串：settings 文档里字段始终存在且为 JSON 友好形状。
  * - streaks/particles 为动态特效开关，默认关闭。
+ * - bing* 为必应壁纸配置与展示元数据；bingMarket 同样用自由字符串，非法值
+ *   在取图时回退默认地区（手改 settings.yaml 不应让整份设置校验失败）。
  */
 export const BackgroundSettingsSchema: z<BackgroundSettings> = z.object({
   preset: z.string().default(BACKGROUND_PRESET_NONE),
@@ -40,4 +43,10 @@ export const BackgroundSettingsSchema: z<BackgroundSettings> = z.object({
   imagePath: z.string().default(''),
   streaks: z.boolean().default(false),
   particles: z.boolean().default(false),
+  bingMarket: z.string().default(DEFAULT_BING_MARKET),
+  bingUhd: z.boolean().default(true),
+  bingAutoRefresh: z.boolean().default(true),
+  bingTitle: z.string().default(''),
+  bingDate: z.string().default(''),
+  bingCopyright: z.string().default(''),
 })

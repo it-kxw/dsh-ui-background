@@ -20,7 +20,7 @@ import {
   type BackgroundFill, type BackgroundSettings,
 } from '../background-settings.ts'
 import type { BackgroundPresenter } from './background-presenter.ts'
-import { presetById } from './presets.ts'
+import { isImagePreset, presetById } from './presets.ts'
 
 /** 一次发布的不可变状态快照（uSES 安全：变化之间引用稳定）。 */
 export interface BackgroundSnapshot {
@@ -44,6 +44,12 @@ function sameSettings(left: Readonly<BackgroundSettings>, right: Readonly<Backgr
     && left.imagePath === right.imagePath
     && left.streaks === right.streaks
     && left.particles === right.particles
+    && left.bingMarket === right.bingMarket
+    && left.bingUhd === right.bingUhd
+    && left.bingAutoRefresh === right.bingAutoRefresh
+    && left.bingTitle === right.bingTitle
+    && left.bingDate === right.bingDate
+    && left.bingCopyright === right.bingCopyright
 }
 
 /**
@@ -118,11 +124,12 @@ export class BackgroundRuntime {
 
   /**
    * 切换背景预设（唯一入口）。
-   * @param id - 内置预设 id、'none'（清除）或 'custom'（由 setImagePath 使用）。
-   * @throws 未知预设 id（非 none/custom、也不在预设表）。
+   * @param id - 内置预设 id、'none'（清除）或图片来源型预设（'custom'/'bing'，
+   *   后者的图片由 setImagePath/setBing 一并写入）。
+   * @throws 未知预设 id（非 none、非图片来源型、也不在预设表）。
    */
   setPreset(id: string): void {
-    if (id !== BACKGROUND_PRESET_CUSTOM && id !== BACKGROUND_PRESET_NONE && presetById(id) === undefined) {
+    if (!isImagePreset(id) && id !== BACKGROUND_PRESET_NONE && presetById(id) === undefined) {
       throw new Error(`background preset "${id}" is not registered`)
     }
     if (this.settings.preset === id) return

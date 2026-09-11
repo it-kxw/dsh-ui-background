@@ -8,7 +8,9 @@
  * @author 康小汪【kxw】
  * @date 2026-09-10
  */
-import { BACKGROUND_PRESET_CUSTOM, BACKGROUND_PRESET_NONE } from '../background-settings.ts'
+import {
+  BACKGROUND_IMAGE_PRESETS, BACKGROUND_PRESET_CUSTOM, BACKGROUND_PRESET_NONE,
+} from '../background-settings.ts'
 import type { BackgroundLocaleKey } from './locales.ts'
 
 /** 预设的形态分类（决定设置行的预览样式；none/custom 除外）。 */
@@ -81,8 +83,8 @@ export function presetById(id: string): BackgroundPreset | undefined {
 
 /**
  * 悬浮按钮的循环切换：'none' → 第一个预设 → … → 最后一个 → 'none'。
- * 当前值不在循环列表（例如自定义图片 'custom'）时重置到 'none'，
- * 保证按钮语义可预期（先关掉再选择）。
+ * 当前值不在循环列表（自定义图片 'custom'、必应壁纸 'bing'）时重置到 'none'，
+ * 保证按钮语义可预期（先关掉再选择；也避免一键切换触发网络请求）。
  * @param currentId - 当前设置的 preset 字段值。
  * @returns 下一个 preset 字段值。
  */
@@ -93,7 +95,17 @@ export function nextPresetId(currentId: string): string {
   return BACKGROUND_PRESET_IDS[index + 1] ?? BACKGROUND_PRESET_NONE
 }
 
-/** 当前值是否为自定义图片预设（供设置行/按钮区分显示）。 */
+/** 当前值是否为自定义图片预设（供设置行区分「上传图片」与「必应壁纸」）。 */
 export function isCustomPreset(id: string): boolean {
   return id === BACKGROUND_PRESET_CUSTOM
+}
+
+/**
+ * 当前值是否为「图片来源型」预设（custom/bing）：背景内容来自 imagePath。
+ * 呈现器、特效与 asset 路由只认 imagePath，因此两类来源共用同一条通路。
+ * @param id - 设置的 preset 字段值。
+ * @returns 是否由 imagePath 提供背景内容。
+ */
+export function isImagePreset(id: string): boolean {
+  return BACKGROUND_IMAGE_PRESETS.includes(id)
 }

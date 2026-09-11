@@ -80,7 +80,7 @@ describe('BackgroundRuntime 写操作', () => {
     expect(snapshots).toHaveLength(1)
   })
 
-  it('none（清除）与 custom 是合法预设值', () => {
+  it('none（清除）与图片来源型预设（custom/bing）是合法预设值', () => {
     const { runtime, host } = make()
     runtime.setPreset('aurora')
     runtime.setPreset('none')
@@ -89,6 +89,8 @@ describe('BackgroundRuntime 写操作', () => {
     expect(host.set).toHaveBeenLastCalledWith('preset', 'none')
     runtime.setPreset('custom')
     expect(runtime.getSnapshot().settings.preset).toBe('custom')
+    runtime.setPreset('bing')
+    expect(runtime.getSnapshot().settings.preset).toBe('bing')
     expect(() => runtime.setPreset('bogus')).toThrow('not registered')
   })
 
@@ -243,6 +245,35 @@ describe('BackgroundRuntime adopt 吸收', () => {
     })
     runtime.adopt()
     expect(runtime.getSnapshot().settings).toMatchObject({ streaks: true, particles: true })
+    expect(host.set).not.toHaveBeenCalled()
+  })
+
+  it('adopt 吸收必应壁纸字段（手改 settings.yaml 或别处写库都能生效）', () => {
+    const { runtime, host, snapshots } = make()
+    host.publish({
+      status: 'ready',
+      value: {
+        ...DEFAULT_BACKGROUND_SETTINGS,
+        preset: 'bing', imagePath: 'C:/dsh/bing/a.jpg',
+        bingMarket: 'ja-JP', bingUhd: false, bingAutoRefresh: false,
+        bingTitle: '富士山', bingDate: '2026-09-10', bingCopyright: '© A',
+      },
+      revision: 1,
+      writable: true,
+    })
+    runtime.adopt()
+    expect(runtime.getSnapshot().settings).toMatchObject({
+      preset: 'bing', bingMarket: 'ja-JP', bingUhd: false, bingTitle: '富士山',
+    })
+    expect(snapshots).toHaveLength(1)
+    // 仅展示字段变化（标题）也必须触发吸收：sameSettings 已覆盖全部必应字段。
+    host.publish({
+      value: { ...runtime.getSnapshot().settings, bingTitle: '改了标题' },
+      revision: 2,
+    })
+    runtime.adopt()
+    expect(runtime.getSnapshot().settings.bingTitle).toBe('改了标题')
+    expect(runtime.getSnapshot().revision).toBe(2)
     expect(host.set).not.toHaveBeenCalled()
   })
 })

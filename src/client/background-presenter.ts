@@ -12,7 +12,7 @@
  * @date 2026-09-10
  */
 import { backgroundAssetUrl, type BackgroundSettings } from '../background-settings.ts'
-import { isCustomPreset, presetById } from './presets.ts'
+import { isImagePreset, presetById } from './presets.ts'
 
 /** body 上的背景激活标记（background.css 据此透明化 --dsw-alias-bg-base）。 */
 export const BG_ACTIVE_ATTRIBUTE = 'data-dsh-bg-active'
@@ -39,13 +39,13 @@ export interface BackgroundValues {
 }
 
 /**
- * 从生效设置解析背景值；无背景（'none'、未知预设、custom 缺图片）返回 null。
+ * 从生效设置解析背景值；无背景（'none'、未知预设、图片来源型预设缺图片）返回 null。
  * 模块级纯函数便于单独测试。
  * @param settings - 生效的背景设置。
  * @returns 两套配色的 background-image 值，或 null（不激活背景）。
  */
 export function backgroundValues(settings: Readonly<BackgroundSettings>): BackgroundValues | null {
-  if (isCustomPreset(settings.preset)) {
+  if (isImagePreset(settings.preset)) {
     if (settings.imagePath === '') return null
     // 引号包裹 URL：路径经 encodeURIComponent 编码后引号内始终安全。
     const url = `url("${backgroundAssetUrl(settings.imagePath)}")`

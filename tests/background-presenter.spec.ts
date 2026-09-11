@@ -91,6 +91,25 @@ describe('自定义图片', () => {
   })
 })
 
+describe('必应壁纸（与 custom 共用同一渲染通路）', () => {
+  it('bing 带缓存路径时写的 URL 与 custom 完全一致', () => {
+    const presenter = new BackgroundPresenter()
+    const cached = 'C:/dsh/ui-background/bing/bing-20260910-7870e237.jpg'
+    presenter.apply(activeSettings({ preset: 'bing', imagePath: cached }))
+    const el = layer()!
+    const expected = `url("/dsh-ui-background/asset?path=${encodeURIComponent(cached)}")`
+    expect(el.style.getPropertyValue('--dsh-bg-image-light')).toBe(expected)
+    expect(el.style.getPropertyValue('--dsh-bg-image-dark')).toBe(expected)
+  })
+
+  it('bing 缺缓存路径视为无背景（首次拉取前不误判为激活）', () => {
+    const presenter = new BackgroundPresenter()
+    presenter.apply(activeSettings({ preset: 'bing', imagePath: '' }))
+    expect(document.body.hasAttribute(BG_ACTIVE_ATTRIBUTE)).toBe(false)
+    expect(backgroundValues(activeSettings({ preset: 'bing', imagePath: '' }))).toBeNull()
+  })
+})
+
 describe('非激活与卸载', () => {
   it('none 与未知预设撤回标记并清空变量', () => {
     const presenter = new BackgroundPresenter()
@@ -138,6 +157,12 @@ describe('backgroundValues 纯函数', () => {
     expect(backgroundValues(activeSettings({ preset: 'none' }))).toBeNull()
     expect(backgroundValues(activeSettings({ preset: 'bogus' }))).toBeNull()
     expect(backgroundValues(activeSettings({ preset: 'custom', imagePath: '' }))).toBeNull()
+    // 图片来源型预设（bing）与 custom 同样需要非空 imagePath。
+    expect(backgroundValues(activeSettings({ preset: 'bing', imagePath: 'C:/b/x.jpg' })))
+      .toEqual({
+        light: `url("/dsh-ui-background/asset?path=${encodeURIComponent('C:/b/x.jpg')}")`,
+        dark: `url("/dsh-ui-background/asset?path=${encodeURIComponent('C:/b/x.jpg')}")`,
+      })
     // 全部预设均可解析出双值。
     for (const preset of BACKGROUND_PRESETS) {
       const values = backgroundValues(activeSettings({ preset: preset.id }))
